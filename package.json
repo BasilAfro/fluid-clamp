@@ -1,0 +1,36 @@
+{
+  "name": "@BasilAfro/fluid-clamp",
+  "version": "1.0.0",
+  "description": "Tailwind CSS plugin for fluid clamp utilities using cqw, cqh, and vw",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "peerDependencies": {
+    "tailwindcss": ">=3.0.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "tailwindcss",
+    "tailwind-plugin",
+    "fluid",
+    "clamp",
+    "container-queries",
+    "cqw",
+    "responsive"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@BasilAfro/fluid-clamp": "link:"
+  }
+}
