@@ -10,7 +10,7 @@
  */
 
 import type { Config } from "tailwindcss";
-import { createFluidPlugin } from "@BasilAfro/fluid-clamp";
+import { createFluidPlugin } from "@basilafro/fluid-clamp";
 
 export default {
   content: ["./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}"],

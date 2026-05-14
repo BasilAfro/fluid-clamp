@@ -106,7 +106,7 @@ export function ArbitraryValueExamples() {
 // When you need to build the class name dynamically at runtime,
 // Tailwind can't see it statically — use an inline style instead.
 
-import { fluidClamp } from "@BasilAfro/fluid-clamp";
+import { fluidClamp } from "@basilafro/fluid-clamp";
 
 export function InlineEscapeHatch({
   minPx,
