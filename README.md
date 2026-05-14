@@ -1,4 +1,4 @@
-# @BasilAfro/fluid-clamp
+# @basilafro/fluid-clamp
 
 Tailwind CSS plugin for fluid `clamp()` utilities using `cqw`, `cqh`, and `vw`.
 
@@ -10,7 +10,7 @@ and maximum size across a container or viewport range.
 ## Install
 
 ```bash
-npm install @BasilAfro/fluid-clamp
+npm install @basilafro/fluid-clamp
 ```
 
 ---
@@ -21,7 +21,7 @@ npm install @BasilAfro/fluid-clamp
 
 ```ts
 // tailwind.config.ts
-import { createFluidPlugin } from "@BasilAfro/fluid-clamp";
+import { createFluidPlugin } from "@basilafro/fluid-clamp";
 
 export default {
   plugins: [
@@ -135,7 +135,7 @@ Same syntax works for all spacing utilities: `p-fluid-[...]`, `w-fluid-[...]`, e
 ## Direct function usage
 
 ```ts
-import { fluidClamp } from "@BasilAfro/fluid-clamp";
+import { fluidClamp } from "@basilafro/fluid-clamp";
 
 // anywhere you need a clamp string
 const fontSize = fluidClamp({
@@ -155,7 +155,7 @@ const fontSize = fluidClamp({
 If you don't need to configure anything, use the pre-built plugin:
 
 ```ts
-import { fluidPlugin } from "@BasilAfro/fluid-clamp";
+import { fluidPlugin } from "@basilafro/fluid-clamp";
 plugins: [fluidPlugin];
 ```
 
