@@ -1,5 +1,5 @@
 {
-  "name": "@BasilAfro/fluid-clamp",
+  "name": "@basilafro/fluid-clamp",
   "version": "1.0.0",
   "description": "Tailwind CSS plugin for fluid clamp utilities using cqw, cqh, and vw",
   "main": "dist/index.js",
@@ -31,6 +31,6 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@BasilAfro/fluid-clamp": "link:"
+    "@basilafro/fluid-clamp": "link:"
   }
 }

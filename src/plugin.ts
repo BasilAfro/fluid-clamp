@@ -3,11 +3,11 @@
  * Tailwind CSS plugin factory for fluid clamp utilities.
  *
  * Usage in tailwind.config.ts:
- *   import { createFluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { createFluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [createFluidPlugin({ ... })]
  *
  * Zero-config (uses all defaults):
- *   import { fluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { fluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [fluidPlugin]
  */
 
