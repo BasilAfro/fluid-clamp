@@ -207,36 +207,66 @@ function resolveBpConfig(
 // ─── Arbitrary value parser ───────────────────────────────────────────────────
 // Parses the value inside w-fluid-[...] or text-fluid-[...]
 //
-// Supported syntaxes (all sizes/pads in px, px suffix optional):
-//   [minSize_maxSize]
-//   [minSize_maxSize_minBp_maxBp]
-//   [minSize_maxSize_minBp_maxBp_minPad_maxPad]
-//   [minSize_maxSize_minBp_maxBp_minPad_maxPad_minSubtract_maxSubtract]
+// Two forms (px suffix optional on every number):
 //
-// The minBp/maxBp slots accept either a px number OR a breakpoint name
-// (a Tailwind screen or a name from the `breakpoints` config), e.g.:
-//   text-fluid-[15_32_sm_lg]      ← size 15→32px across the sm→lg range
-//   text-fluid-[15_32_xs_1280]    ← names and numbers can be mixed
+//   1. Shorthand — two sizes, scaled across the configured breakpoints:
+//        text-fluid-[16_24]
+//
+//   2. Anchors — a size pinned to an explicit breakpoint with `size@bp`:
+//        text-fluid-[16@320_24@1280]      explicit breakpoints
+//        text-fluid-[16@sm_24@lg]         breakpoint names (theme.screens + config)
+//        text-fluid-[16@320-16_24@1280-24] per-anchor inset (effective bp = bp − 16 / − 24)
+//
+//      The inset (`-N`) is subtracted directly from that breakpoint — use it to
+//      account for container padding or sibling elements. (3+ anchors / piecewise
+//      ramps are reserved for a future release.)
 //
 // The fluid unit is chosen automatically, with this precedence:
 //   1. An explicit leading unit token (cqw|cqh|vw) — always wins:
-//        text-fluid-[cqw_15_32]   text-fluid-[vw_15_32_sm_lg]
+//        text-fluid-[cqw_16_24]   text-fluid-[cqw_16@320_24@1280]
 //   2. A named breakpoint ⇒ vw (named breakpoints are viewport screens).
 //   3. Otherwise the configured default unit (textUnit/spaceUnit, default vw).
-//
-// Examples — these are all equivalent:
-//   text-fluid-[14_24]
-//   text-fluid-[14px_24px]
-//   text-fluid-[14_24_304_1074]
-//   text-fluid-[14px_24px_304px_1074px]
-//
-// When minBp/maxBp are omitted, the resolved config breakpoints are used.
 
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
 
 function stripPx(s: string): number {
   return Number(s.endsWith("px") ? s.slice(0, -2) : s);
+}
+
+interface ParsedAnchor {
+  size: number;
+  /** Effective breakpoint in px, after subtracting any inset. */
+  bp: number;
+  /** Whether the breakpoint was given as a name (a viewport screen). */
+  named: boolean;
+}
+
+// Parses one `size@bp` or `size@bp-inset` anchor token. Returns null if malformed.
+function parseAnchor(
+  token: string,
+  breakpoints: Record<string, number>,
+): ParsedAnchor | null {
+  const at = token.indexOf("@");
+  if (at < 0) return null;
+
+  const size = stripPx(token.slice(0, at));
+  let bpToken = token.slice(at + 1);
+
+  // Optional inset: `bp-inset` (subtracted directly, no doubling).
+  let inset = 0;
+  const dash = bpToken.indexOf("-");
+  if (dash >= 0) {
+    inset = stripPx(bpToken.slice(dash + 1));
+    bpToken = bpToken.slice(0, dash);
+  }
+
+  const named = Object.prototype.hasOwnProperty.call(breakpoints, bpToken);
+  const bp = named ? breakpoints[bpToken] : stripPx(bpToken);
+
+  if (isNaN(size) || isNaN(bp) || isNaN(inset)) return null;
+
+  return { size, bp: bp - inset, named };
 }
 
 function parseArbitraryValue(
@@ -253,49 +283,47 @@ function parseArbitraryValue(
     inlineUnit = parts.shift() as FluidUnit;
   }
 
-  // Indices 2 (minBp) and 3 (maxBp) may be breakpoint names; everything else
-  // must be a px number. A named breakpoint is a viewport screen, so its
-  // presence implies the viewport unit (vw) when no inline unit is given.
-  let usedNamedBp = false;
-  const numbers = parts.map((part, i) => {
-    if (
-      (i === 2 || i === 3) &&
-      Object.prototype.hasOwnProperty.call(breakpoints, part)
-    ) {
-      usedNamedBp = true;
-      return breakpoints[part];
+  const pickUnit = (named: boolean): FluidUnit =>
+    inlineUnit ?? (named ? "vw" : fallbackUnit);
+
+  // ── Anchor form: every token carries an explicit `size@bp` ──────────────────
+  if (parts.some((p) => p.includes("@"))) {
+    const anchors = parts.map((p) => parseAnchor(p, breakpoints));
+    if (anchors.some((a) => a === null)) return null;
+
+    // 3+ anchors (piecewise) are not implemented yet — reserved for later.
+    if (anchors.length !== 2) return null;
+
+    const [a, b] = anchors as ParsedAnchor[];
+    // Order by breakpoint so the smaller bp is the min anchor.
+    const [lo, hi] = a.bp <= b.bp ? [a, b] : [b, a];
+
+    try {
+      return fluidClamp({
+        minSize: lo.size,
+        maxSize: hi.size,
+        minBp: lo.bp,
+        maxBp: hi.bp,
+        fluidUnit: pickUnit(a.named || b.named),
+      });
+    } catch {
+      return null;
     }
-    return stripPx(part);
-  });
+  }
 
-  if (numbers.length < 2 || numbers.some(isNaN)) return null;
+  // ── Shorthand form: exactly two sizes, across the configured breakpoints ────
+  if (parts.length !== 2) return null;
 
-  // Unit precedence: inline override → named-breakpoint auto (vw) → config default.
-  const fluidUnit: FluidUnit =
-    inlineUnit ?? (usedNamedBp ? "vw" : fallbackUnit);
-
-  const [
-    minSize,
-    maxSize,
-    minBp,
-    maxBp,
-    minPadding,
-    maxPadding,
-    minSubtract,
-    maxSubtract,
-  ] = numbers;
+  const [minSize, maxSize] = parts.map(stripPx);
+  if (isNaN(minSize) || isNaN(maxSize)) return null;
 
   try {
     return fluidClamp({
       minSize,
       maxSize,
-      minBp: minBp ?? fallbackBp.minBp,
-      maxBp: maxBp ?? fallbackBp.maxBp,
-      fluidUnit,
-      minPadding: minPadding ?? 0,
-      maxPadding: maxPadding ?? 0,
-      minSubtract: minSubtract ?? 0,
-      maxSubtract: maxSubtract ?? 0,
+      minBp: fallbackBp.minBp,
+      maxBp: fallbackBp.maxBp,
+      fluidUnit: pickUnit(false),
     });
   } catch {
     return null;

@@ -114,106 +114,80 @@ Example: `p-fluid-4`, `gap-fluid-6`, `w-fluid-12`
 ## Arbitrary values
 
 For one-off values outside the scale, use bracket syntax directly in your JSX.
-All values are in `px`.
+All numbers are in `px` (the `px` suffix is optional). The same syntax works on
+every utility: `text-fluid-[...]`, `p-fluid-[...]`, `w-fluid-[...]`, etc.
 
+### Shorthand — two sizes
+
+Scales between two sizes across the **configured** breakpoints:
+
+```tsx
+<p className="text-fluid-[13_19]" />; // 13px → 19px
 ```
-text-fluid-[minSize_maxSize]
-text-fluid-[minSize_maxSize_minBp_maxBp]
-text-fluid-[minSize_maxSize_minBp_maxBp_minPad_maxPad]
-text-fluid-[minSize_maxSize_minBp_maxBp_minPad_maxPad_minSubtract_maxSubtract]
-```
 
-Same syntax works for all spacing utilities: `p-fluid-[...]`, `w-fluid-[...]`, etc.
+### Anchors — `size@bp`
 
-### Named breakpoints
-
-The `minBp` and `maxBp` slots accept a **breakpoint name** instead of a px number.
-Names resolve from your Tailwind `theme.screens` (so `sm`, `md`, `lg`, `xl`, `2xl`
-and any custom screens work automatically), plus any names you add via the
-`breakpoints` config option. Names and numbers can be mixed.
+Pin a size to an explicit breakpoint with `size@bp`. Order doesn't matter.
 
 ```tsx
 {
-  /* Scale 15→32px across the sm→lg range */
+  /* 16px at 320, 24px at 1280 */
 }
-<p className="text-fluid-[15_32_sm_lg]" />;
+<p className="text-fluid-[16@320_24@1280]" />;
 
 {
-  /* Mix a custom name with a raw px breakpoint */
+  /* Spacing works the same way */
 }
-<p className="text-fluid-[15_32_xs_1280]" />;
-
-{
-  /* Works on spacing utilities too */
-}
-<div className="w-fluid-[120_200_md_2xl]" />;
+<div className="p-fluid-[8@320_16@1280]" />;
 ```
 
-Add names that aren't Tailwind screens (or override a screen's px value just for
-fluid utilities) via config:
+The breakpoint can be a **name** — a Tailwind `theme.screens` entry (`sm`, `md`,
+`lg`, `xl`, `2xl`, plus custom screens), or a name from the `breakpoints` config:
+
+```tsx
+<p className="text-fluid-[16@sm_24@lg]" />;
+```
 
 ```ts
 createFluidPlugin({
-  breakpoints: { xs: 480 }, // now usable as text-fluid-[15_32_xs_lg]
+  breakpoints: { xs: 480 }, // now usable as text-fluid-[16@xs_24@lg]
 });
 ```
 
-> An unknown breakpoint name produces no class (the utility is silently skipped),
-> the same way an invalid number does.
+#### Inset
+
+Append `-N` to a breakpoint to subtract `N` px from it — handy for accounting
+for container padding or fixed sibling elements. It's subtracted **directly**
+(no doubling):
+
+```tsx
+{
+  /* effective range 304 → 1256 (320−16, 1280−24) */
+}
+<p className="text-fluid-[16@320-16_24@1280-24]" />;
+```
+
+> 3+ anchors (piecewise / non-linear ramps) are reserved for a future release.
 
 ### Fluid unit selection
 
 The unit (`vw`, `cqw`, or `cqh`) is chosen automatically, with this precedence:
 
-1. **Inline unit token** — a leading `vw`/`cqw`/`cqh` in the value always wins.
-   This is the explicit "dev input" escape hatch.
-2. **Named breakpoint → `vw`** — a named breakpoint is a viewport screen, so its
-   presence selects `vw` automatically (no token needed).
+1. **Inline unit token** — a leading `vw`/`cqw`/`cqh` always wins (explicit opt-in).
+2. **Named breakpoint → `vw`** — a named breakpoint is a viewport screen, so it
+   selects `vw` automatically (no token needed).
 3. **Config default** — `textUnit` / `spaceUnit` (default `vw`).
 
 ```tsx
-{
-  /* default → vw */
-}
-<p className="text-fluid-[15_32]" />;
-
-{
-  /* named breakpoint → automatically vw */
-}
-<p className="text-fluid-[15_32_sm_lg]" />;
-
-{
-  /* inline token → cqw (needs container-type on an ancestor) */
-}
-<p className="text-fluid-[cqw_15_32]" />;
-
-{
-  /* inline token wins even over the named-breakpoint auto rule */
-}
-<p className="text-fluid-[cqw_15_32_sm_lg]" />;
+<p className="text-fluid-[16_24]" />;          {/* default → vw */}
+<p className="text-fluid-[16@sm_24@lg]" />;    {/* named bp → vw */}
+<p className="text-fluid-[cqw_16_24]" />;      {/* inline token → cqw */}
+<p className="text-fluid-[cqw_16@sm_24@lg]" />;{/* token wins over the auto rule */}
 ```
 
 > `cqw`/`cqh` are container-relative and require `container-type` on an ancestor;
-> `vw` is viewport-relative and needs no setup.
-
-### Examples
-
-```tsx
-{
-  /* Uses config breakpoints */
-}
-<p className="text-fluid-[13_19]" />;
-
-{
-  /* Card 140→260px with 8→12px padding — available space 124→236px */
-}
-<div className="w-fluid-[120_200_140_260_8_12]" />;
-
-{
-  /* Row layout: subtract icon(24→32px) + gap(6→8px) */
-}
-<p className="text-fluid-[12_18_140_260_8_12_30_40]" />;
-```
+> `vw` is viewport-relative and needs no setup. An unknown breakpoint name (or any
+> malformed value) produces no class, the same way an invalid number does.
 
 > **Note:** Tailwind scans files statically. If you build a class name dynamically
 > at runtime, use the `fluidClamp()` function in an inline style instead.
