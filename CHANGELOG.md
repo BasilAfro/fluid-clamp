@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added general `unit` and `bp` config options that apply to both text and
+  spacing — the only knobs most projects need. The existing `textUnit`,
+  `spaceUnit`, `textBp`, `spaceBp` keys still work and override the general one
+  for their target (precedence: per-target → general → default).
 - **Breaking:** the default fluid unit is now `vw` (was `cqw`) for both
   `textUnit` and `spaceUnit`, matching the viewport-based breakpoints. Pass
   `textUnit`/`spaceUnit` to restore `cqw`.

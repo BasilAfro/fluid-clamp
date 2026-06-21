@@ -26,13 +26,15 @@ import { createFluidPlugin } from "@basilafro/fluid-clamp";
 export default {
   plugins: [
     createFluidPlugin({
-      textBp: { minBp: 320, maxBp: 1280 }, // viewport range to scale across
-      spaceBp: { minBp: 320, maxBp: 1280 },
-      // textUnit / spaceUnit default to "vw" — see "Fluid unit selection" below
+      bp: { minBp: 320, maxBp: 1280 }, // viewport range to scale across
+      unit: "vw", // default — see "Fluid unit selection" below
     }),
   ],
 };
 ```
+
+> `bp` and `unit` apply to both text and spacing. Override just one with
+> `textBp`/`spaceBp` or `textUnit`/`spaceUnit` (see Config options).
 
 ### 2. (Only for `cqw`/`cqh`) set container-type
 
@@ -55,11 +57,17 @@ setup**. You only need `container-type` if you opt into container units
 
 | Option        | Type                     | Default         | Description                                                  |
 | ------------- | ------------------------ | --------------- | ------------------------------------------------------------ |
-| `textBp`      | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for `text-fluid-*`                               |
-| `spaceBp`     | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for spacing utilities                            |
-| `textUnit`    | `"vw" \| "cqw" \| "cqh"` | `"vw"`          | Default fluid unit for text (overridable per-class)          |
-| `spaceUnit`   | `"vw" \| "cqw" \| "cqh"` | `"vw"`          | Default fluid unit for spacing (overridable per-class)       |
+| `bp`          | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for **all** fluid utilities                      |
+| `unit`        | `"vw" \| "cqw" \| "cqh"` | `"vw"`          | Default fluid unit for **all** utilities (overridable per-class) |
 | `breakpoints` | `Record<string, number>` | `{}`            | Extra/override named breakpoints for arbitrary values (px)   |
+| `textBp`      | `{ minBp, maxBp }`       | `bp`            | Override breakpoints for `text-fluid-*` only                 |
+| `spaceBp`     | `{ minBp, maxBp }`       | `bp`            | Override breakpoints for spacing utilities only              |
+| `textUnit`    | `"vw" \| "cqw" \| "cqh"` | `unit`          | Override fluid unit for text only                            |
+| `spaceUnit`   | `"vw" \| "cqw" \| "cqh"` | `unit`          | Override fluid unit for spacing only                         |
+
+Most projects only need `bp` and `unit`. The four `text*`/`space*` keys are
+escape hatches for the rarer case where text and spacing scale differently
+(e.g. text against the viewport, spacing against a component container).
 
 ---
 

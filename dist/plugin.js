@@ -144,12 +144,13 @@ function parseArbitraryValue(value, fallbackUnit, fallbackBp, breakpoints = {}) 
 }
 // ─── Plugin factory ───────────────────────────────────────────────────────────
 function createFluidPlugin(config = {}) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    // Precedence: per-target override → general knob → built-in default.
     const resolved = {
-        textBp: (_a = config.textBp) !== null && _a !== void 0 ? _a : PLUGIN_DEFAULTS.textBp,
-        spaceBp: (_b = config.spaceBp) !== null && _b !== void 0 ? _b : PLUGIN_DEFAULTS.spaceBp,
-        textUnit: (_c = config.textUnit) !== null && _c !== void 0 ? _c : PLUGIN_DEFAULTS.textUnit,
-        spaceUnit: (_d = config.spaceUnit) !== null && _d !== void 0 ? _d : PLUGIN_DEFAULTS.spaceUnit,
+        textBp: (_b = (_a = config.textBp) !== null && _a !== void 0 ? _a : config.bp) !== null && _b !== void 0 ? _b : PLUGIN_DEFAULTS.textBp,
+        spaceBp: (_d = (_c = config.spaceBp) !== null && _c !== void 0 ? _c : config.bp) !== null && _d !== void 0 ? _d : PLUGIN_DEFAULTS.spaceBp,
+        textUnit: (_f = (_e = config.textUnit) !== null && _e !== void 0 ? _e : config.unit) !== null && _f !== void 0 ? _f : PLUGIN_DEFAULTS.textUnit,
+        spaceUnit: (_h = (_g = config.spaceUnit) !== null && _g !== void 0 ? _g : config.unit) !== null && _h !== void 0 ? _h : PLUGIN_DEFAULTS.spaceUnit,
     };
     return (0, plugin_1.default)(function ({ addUtilities, matchUtilities, theme }) {
         // Named breakpoints: Tailwind's theme screens + plugin overrides.

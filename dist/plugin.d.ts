@@ -19,19 +19,14 @@ export interface BreakpointConfig {
 }
 export interface FluidPluginConfig {
     /**
-     * Breakpoints used for text-fluid-* classes.
-     * Should reflect your page container or viewport range.
-     * @default { minBp: 304, maxBp: 1074 }  (320 - 8px pad, 1098 - 12px pad)
+     * Breakpoints used for all fluid utilities (text and spacing).
+     * This is the one knob most projects need — text and spacing usually share
+     * the same range. Use `textBp`/`spaceBp` only to override one of them.
+     * @default { minBp: 320, maxBp: 1280 }
      */
-    textBp?: BreakpointConfig;
+    bp?: BreakpointConfig;
     /**
-     * Breakpoints used for spacing fluid-* classes (padding, margin, gap, size).
-     * Should reflect your component/card container range.
-     * @default { minBp: 304, maxBp: 1074 }
-     */
-    spaceBp?: BreakpointConfig;
-    /**
-     * Default fluid unit for text-fluid-* classes.
+     * Default fluid unit for all fluid utilities (text and spacing).
      * - "vw"  → relative to viewport, no container needed (matches breakpoints)
      * - "cqw" → needs container-type: inline-size or size on parent
      * - "cqh" → needs container-type: size + explicit height on parent
@@ -39,13 +34,33 @@ export interface FluidPluginConfig {
      * This is only the fallback. A unit can be chosen per-class with a leading
      * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
      * (e.g. `text-fluid-[15_32_sm_lg]`) automatically selects `vw`.
+     * Use `textUnit`/`spaceUnit` only to override one of them.
      * @default "vw"
+     */
+    unit?: FluidUnit;
+    /**
+     * Override breakpoints for text-fluid-* classes only.
+     * Falls back to `bp`, then the default. Use this when text should scale
+     * across a different range than spacing (e.g. page/viewport vs component).
+     * @default `bp`
+     */
+    textBp?: BreakpointConfig;
+    /**
+     * Override breakpoints for spacing fluid-* classes only.
+     * Falls back to `bp`, then the default.
+     * @default `bp`
+     */
+    spaceBp?: BreakpointConfig;
+    /**
+     * Override the fluid unit for text-fluid-* classes only.
+     * Falls back to `unit`, then the default. Same precedence rules as `unit`.
+     * @default `unit`
      */
     textUnit?: FluidUnit;
     /**
-     * Default fluid unit for spacing fluid-* classes.
-     * Same precedence rules as `textUnit`.
-     * @default "vw"
+     * Override the fluid unit for spacing fluid-* classes only.
+     * Falls back to `unit`, then the default.
+     * @default `unit`
      */
     spaceUnit?: FluidUnit;
     /**

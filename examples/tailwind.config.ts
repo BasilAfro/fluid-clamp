@@ -19,16 +19,17 @@ export default {
   },
   plugins: [
     createFluidPlugin({
+      // bp + unit apply to both text and spacing — usually all you need.
+      // (Use textBp/spaceBp or textUnit/spaceUnit only to diverge them.)
+
       // available space after subtracting page container padding
-      textBp: { minBp: 304, maxBp: 1074 },
-      spaceBp: { minBp: 304, maxBp: 1074 },
+      bp: { minBp: 304, maxBp: 1074 },
 
       // The default unit is "vw". This project renders everything inside a
       // page container with container-type, so it overrides the default to cqw.
       // (Individual classes can still opt back to vw with a unit token, and a
       //  named breakpoint auto-selects vw — see usage.tsx.)
-      textUnit: "cqw",
-      spaceUnit: "cqw",
+      unit: "cqw",
 
       // extra named breakpoints usable in arbitrary values, e.g.
       // text-fluid-[15_32_xs_lg] — merged on top of theme.screens
