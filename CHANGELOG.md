@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Config breakpoints (`bp`, `textBp`, `spaceBp`) accept **breakpoint names**
+  for `minBp`/`maxBp`, e.g. `bp: { minBp: "xs", maxBp: "lg" }`. Names resolve
+  from `theme.screens` + the `breakpoints` option; an unknown name throws a
+  clear build-time error.
 - Added general `unit` and `bp` config options that apply to both text and
   spacing — the only knobs most projects need. The existing `textUnit`,
   `spaceUnit`, `textBp`, `spaceBp` keys still work and override the general one

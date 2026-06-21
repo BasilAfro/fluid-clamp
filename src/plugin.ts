@@ -22,9 +22,20 @@ import {
 // ─── Breakpoint config ────────────────────────────────────────────────────────
 
 export interface BreakpointConfig {
-  /** Minimum breakpoint in px (container or viewport width/height) */
+  /**
+   * Minimum breakpoint — a px number, or a breakpoint name (a Tailwind screen
+   * or a name from the `breakpoints` config), e.g. `"xs"` or `"sm"`.
+   */
+  minBp: number | string;
+  /**
+   * Maximum breakpoint — a px number or a breakpoint name, e.g. `"lg"`.
+   */
+  maxBp: number | string;
+}
+
+/** Internal: a fully-resolved, numeric breakpoint range. */
+interface NumericBp {
   minBp: number;
-  /** Maximum breakpoint in px */
   maxBp: number;
 }
 
@@ -35,6 +46,9 @@ export interface FluidPluginConfig {
    * Breakpoints used for all fluid utilities (text and spacing).
    * This is the one knob most projects need — text and spacing usually share
    * the same range. Use `textBp`/`spaceBp` only to override one of them.
+   *
+   * `minBp`/`maxBp` accept a px number or a breakpoint name (a Tailwind screen
+   * or a name from the `breakpoints` option), e.g. `{ minBp: "xs", maxBp: "lg" }`.
    * @default { minBp: 320, maxBp: 1280 }
    */
   bp?: BreakpointConfig;
@@ -170,6 +184,26 @@ function resolveBreakpoints(
   return map;
 }
 
+// Resolves a config breakpoint range to numbers, turning any breakpoint names
+// (e.g. "xs", "lg") into px via the resolved breakpoint map. Throws a clear
+// error on an unknown name — config mistakes should be loud, not silent.
+function resolveBpConfig(
+  bp: BreakpointConfig,
+  bpMap: Record<string, number>,
+  label: string,
+): NumericBp {
+  const one = (v: number | string, which: "minBp" | "maxBp"): number => {
+    if (typeof v === "number") return v;
+    if (Object.prototype.hasOwnProperty.call(bpMap, v)) return bpMap[v];
+    throw new Error(
+      `createFluidPlugin: unknown breakpoint name "${v}" in ${label}.${which}. ` +
+        `Add it to the plugin's \`breakpoints\` option or your tailwind ` +
+        `theme.screens, or use a px number.`,
+    );
+  };
+  return { minBp: one(bp.minBp, "minBp"), maxBp: one(bp.maxBp, "maxBp") };
+}
+
 // ─── Arbitrary value parser ───────────────────────────────────────────────────
 // Parses the value inside w-fluid-[...] or text-fluid-[...]
 //
@@ -208,7 +242,7 @@ function stripPx(s: string): number {
 function parseArbitraryValue(
   value: string,
   fallbackUnit: FluidUnit,
-  fallbackBp: BreakpointConfig,
+  fallbackBp: NumericBp,
   breakpoints: Record<string, number> = {},
 ): string | null {
   const parts = value.split(" ");
@@ -283,11 +317,15 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
     // Named breakpoints: Tailwind's theme screens + plugin overrides.
     const bpMap = resolveBreakpoints(theme as ThemeFn, config.breakpoints);
 
+    // Resolve config breakpoints (which may use names like "xs"/"lg") to px.
+    const textBp = resolveBpConfig(resolved.textBp, bpMap, "textBp");
+    const spaceBp = resolveBpConfig(resolved.spaceBp, bpMap, "spaceBp");
+
     // Bound parsers so arbitrary-value callbacks stay terse.
     const textClamp = (value: string) =>
-      parseArbitraryValue(value, resolved.textUnit, resolved.textBp, bpMap);
+      parseArbitraryValue(value, resolved.textUnit, textBp, bpMap);
     const spaceClamp = (value: string) =>
-      parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp, bpMap);
+      parseArbitraryValue(value, resolved.spaceUnit, spaceBp, bpMap);
 
     // ── Static type scale ────────────────────────────────────────────────────
     // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
@@ -300,7 +338,7 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
             minSize,
             maxSize,
             fluidUnit: resolved.textUnit,
-            ...resolved.textBp,
+            ...textBp,
           }),
         },
       ]),
@@ -318,7 +356,7 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
         minSize,
         maxSize,
         fluidUnit: resolved.spaceUnit,
-        ...resolved.spaceBp,
+        ...spaceBp,
       });
 
       spaceUtilities[`.p-fluid-${key}`] = { padding: c };

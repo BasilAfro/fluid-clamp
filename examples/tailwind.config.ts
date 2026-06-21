@@ -22,7 +22,9 @@ export default {
       // bp + unit apply to both text and spacing — usually all you need.
       // (Use textBp/spaceBp or textUnit/spaceUnit only to diverge them.)
 
-      // available space after subtracting page container padding
+      // available space after subtracting page container padding.
+      // minBp/maxBp also accept breakpoint names, e.g. { minBp: "xs", maxBp: "lg" }
+      // (resolved from theme.screens + the `breakpoints` option below).
       bp: { minBp: 304, maxBp: 1074 },
 
       // The default unit is "vw". This project renders everything inside a

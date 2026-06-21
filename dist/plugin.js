@@ -69,6 +69,21 @@ function resolveBreakpoints(theme, overrides = {}) {
     }
     return map;
 }
+// Resolves a config breakpoint range to numbers, turning any breakpoint names
+// (e.g. "xs", "lg") into px via the resolved breakpoint map. Throws a clear
+// error on an unknown name — config mistakes should be loud, not silent.
+function resolveBpConfig(bp, bpMap, label) {
+    const one = (v, which) => {
+        if (typeof v === "number")
+            return v;
+        if (Object.prototype.hasOwnProperty.call(bpMap, v))
+            return bpMap[v];
+        throw new Error(`createFluidPlugin: unknown breakpoint name "${v}" in ${label}.${which}. ` +
+            `Add it to the plugin's \`breakpoints\` option or your tailwind ` +
+            `theme.screens, or use a px number.`);
+    };
+    return { minBp: one(bp.minBp, "minBp"), maxBp: one(bp.maxBp, "maxBp") };
+}
 // ─── Arbitrary value parser ───────────────────────────────────────────────────
 // Parses the value inside w-fluid-[...] or text-fluid-[...]
 //
@@ -155,9 +170,12 @@ function createFluidPlugin(config = {}) {
     return (0, plugin_1.default)(function ({ addUtilities, matchUtilities, theme }) {
         // Named breakpoints: Tailwind's theme screens + plugin overrides.
         const bpMap = resolveBreakpoints(theme, config.breakpoints);
+        // Resolve config breakpoints (which may use names like "xs"/"lg") to px.
+        const textBp = resolveBpConfig(resolved.textBp, bpMap, "textBp");
+        const spaceBp = resolveBpConfig(resolved.spaceBp, bpMap, "spaceBp");
         // Bound parsers so arbitrary-value callbacks stay terse.
-        const textClamp = (value) => parseArbitraryValue(value, resolved.textUnit, resolved.textBp, bpMap);
-        const spaceClamp = (value) => parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp, bpMap);
+        const textClamp = (value) => parseArbitraryValue(value, resolved.textUnit, textBp, bpMap);
+        const spaceClamp = (value) => parseArbitraryValue(value, resolved.spaceUnit, spaceBp, bpMap);
         // ── Static type scale ────────────────────────────────────────────────────
         // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
         const typeUtilities = Object.fromEntries(Object.entries(defaults_1.DEFAULT_TYPE_SCALE).map(([key, { minSize, maxSize }]) => [
@@ -167,7 +185,7 @@ function createFluidPlugin(config = {}) {
                     minSize,
                     maxSize,
                     fluidUnit: resolved.textUnit,
-                    ...resolved.textBp,
+                    ...textBp,
                 }),
             },
         ]));
@@ -179,7 +197,7 @@ function createFluidPlugin(config = {}) {
                 minSize,
                 maxSize,
                 fluidUnit: resolved.spaceUnit,
-                ...resolved.spaceBp,
+                ...spaceBp,
             });
             spaceUtilities[`.p-fluid-${key}`] = { padding: c };
             spaceUtilities[`.px-fluid-${key}`] = { paddingLeft: c, paddingRight: c };

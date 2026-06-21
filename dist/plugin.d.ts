@@ -12,16 +12,24 @@
  */
 import { FluidUnit } from "./fluid";
 export interface BreakpointConfig {
-    /** Minimum breakpoint in px (container or viewport width/height) */
-    minBp: number;
-    /** Maximum breakpoint in px */
-    maxBp: number;
+    /**
+     * Minimum breakpoint — a px number, or a breakpoint name (a Tailwind screen
+     * or a name from the `breakpoints` config), e.g. `"xs"` or `"sm"`.
+     */
+    minBp: number | string;
+    /**
+     * Maximum breakpoint — a px number or a breakpoint name, e.g. `"lg"`.
+     */
+    maxBp: number | string;
 }
 export interface FluidPluginConfig {
     /**
      * Breakpoints used for all fluid utilities (text and spacing).
      * This is the one knob most projects need — text and spacing usually share
      * the same range. Use `textBp`/`spaceBp` only to override one of them.
+     *
+     * `minBp`/`maxBp` accept a px number or a breakpoint name (a Tailwind screen
+     * or a name from the `breakpoints` option), e.g. `{ minBp: "xs", maxBp: "lg" }`.
      * @default { minBp: 320, maxBp: 1280 }
      */
     bp?: BreakpointConfig;
