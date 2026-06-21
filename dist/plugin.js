@@ -4,11 +4,11 @@
  * Tailwind CSS plugin factory for fluid clamp utilities.
  *
  * Usage in tailwind.config.ts:
- *   import { createFluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { createFluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [createFluidPlugin({ ... })]
  *
  * Zero-config (uses all defaults):
- *   import { fluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { fluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [fluidPlugin]
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -26,14 +26,60 @@ const PLUGIN_DEFAULTS = {
     textUnit: "cqw",
     spaceUnit: "cqw",
 };
+// Parses a single theme `screens` value into px.
+// Handles "640px", "40rem"/"40em" (× rootPx), bare numbers, and the
+// object form ({ min, max }) by preferring `min`. Returns NaN if unparseable.
+function parseScreen(value, rootPx = 16) {
+    if (typeof value === "number")
+        return value;
+    if (typeof value === "string") {
+        const match = value.trim().match(/^(-?[\d.]+)(px|rem|em)?$/);
+        if (!match)
+            return NaN;
+        const n = Number(match[1]);
+        if (isNaN(n))
+            return NaN;
+        return match[2] === "rem" || match[2] === "em" ? n * rootPx : n;
+    }
+    if (value && typeof value === "object") {
+        const obj = value;
+        if ("min" in obj)
+            return parseScreen(obj.min, rootPx);
+        if ("max" in obj)
+            return parseScreen(obj.max, rootPx);
+    }
+    return NaN;
+}
+function resolveBreakpoints(theme, overrides = {}) {
+    const map = {};
+    const screens = theme("screens");
+    if (screens && typeof screens === "object") {
+        for (const [name, value] of Object.entries(screens)) {
+            const px = parseScreen(value);
+            if (!isNaN(px))
+                map[name] = px;
+        }
+    }
+    // Plugin-level overrides win over theme screens.
+    for (const [name, px] of Object.entries(overrides)) {
+        if (typeof px === "number" && !isNaN(px))
+            map[name] = px;
+    }
+    return map;
+}
 // ─── Arbitrary value parser ───────────────────────────────────────────────────
 // Parses the value inside w-fluid-[...] or text-fluid-[...]
 //
-// Supported syntaxes (all values in px, px suffix optional):
+// Supported syntaxes (all sizes/pads in px, px suffix optional):
 //   [minSize_maxSize]
 //   [minSize_maxSize_minBp_maxBp]
 //   [minSize_maxSize_minBp_maxBp_minPad_maxPad]
 //   [minSize_maxSize_minBp_maxBp_minPad_maxPad_minSubtract_maxSubtract]
+//
+// The minBp/maxBp slots accept either a px number OR a breakpoint name
+// (a Tailwind screen or a name from the `breakpoints` config), e.g.:
+//   text-fluid-[15_32_sm_lg]      ← size 15→32px across the sm→lg range
+//   text-fluid-[15_32_xs_1280]    ← names and numbers can be mixed
 //
 // Examples — these are all equivalent:
 //   text-fluid-[14_24]
@@ -47,13 +93,21 @@ const PLUGIN_DEFAULTS = {
 function stripPx(s) {
     return Number(s.endsWith("px") ? s.slice(0, -2) : s);
 }
-function parseArbitraryValue(value, fallbackUnit, fallbackBp) {
+function parseArbitraryValue(value, fallbackUnit, fallbackBp, breakpoints = {}) {
     const parts = value.split(" ");
     let fluidUnit = fallbackUnit;
     if ((0, fluid_1.isFluidUnit)(parts[0])) {
         fluidUnit = parts.shift();
     }
-    const numbers = parts.map(stripPx);
+    // Indices 2 (minBp) and 3 (maxBp) may be breakpoint names; everything else
+    // must be a px number.
+    const numbers = parts.map((part, i) => {
+        if ((i === 2 || i === 3) &&
+            Object.prototype.hasOwnProperty.call(breakpoints, part)) {
+            return breakpoints[part];
+        }
+        return stripPx(part);
+    });
     if (numbers.length < 2 || numbers.some(isNaN))
         return null;
     const [minSize, maxSize, minBp, maxBp, minPadding, maxPadding, minSubtract, maxSubtract,] = numbers;
@@ -83,7 +137,12 @@ function createFluidPlugin(config = {}) {
         textUnit: (_c = config.textUnit) !== null && _c !== void 0 ? _c : PLUGIN_DEFAULTS.textUnit,
         spaceUnit: (_d = config.spaceUnit) !== null && _d !== void 0 ? _d : PLUGIN_DEFAULTS.spaceUnit,
     };
-    return (0, plugin_1.default)(function ({ addUtilities, matchUtilities }) {
+    return (0, plugin_1.default)(function ({ addUtilities, matchUtilities, theme }) {
+        // Named breakpoints: Tailwind's theme screens + plugin overrides.
+        const bpMap = resolveBreakpoints(theme, config.breakpoints);
+        // Bound parsers so arbitrary-value callbacks stay terse.
+        const textClamp = (value) => parseArbitraryValue(value, resolved.textUnit, resolved.textBp, bpMap);
+        const spaceClamp = (value) => parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp, bpMap);
         // ── Static type scale ────────────────────────────────────────────────────
         // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
         const typeUtilities = Object.fromEntries(Object.entries(defaults_1.DEFAULT_TYPE_SCALE).map(([key, { minSize, maxSize }]) => [
@@ -135,85 +194,85 @@ function createFluidPlugin(config = {}) {
         // text-fluid-[14_24_140_260_8_12_32_40]    ← with padding + sibling subtraction
         matchUtilities({
             "text-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.textUnit, resolved.textBp);
+                const c = textClamp(value);
                 return c ? { fontSize: c } : null;
             },
         }, { type: "any" });
         matchUtilities({
             "p-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { padding: c } : null;
             },
             "px-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { paddingLeft: c, paddingRight: c } : null;
             },
             "py-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { paddingTop: c, paddingBottom: c } : null;
             },
             "pt-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { paddingTop: c } : null;
             },
             "pr-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { paddingRight: c } : null;
             },
             "pb-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { paddingBottom: c } : null;
             },
             "pl-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { paddingLeft: c } : null;
             },
             "m-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { margin: c } : null;
             },
             "mx-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { marginLeft: c, marginRight: c } : null;
             },
             "my-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { marginTop: c, marginBottom: c } : null;
             },
             "mt-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { marginTop: c } : null;
             },
             "mr-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { marginRight: c } : null;
             },
             "mb-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { marginBottom: c } : null;
             },
             "ml-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { marginLeft: c } : null;
             },
             "gap-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { gap: c } : null;
             },
             "gap-x-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { columnGap: c } : null;
             },
             "gap-y-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { rowGap: c } : null;
             },
             "w-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { width: c } : null;
             },
             "h-fluid": (value) => {
-                const c = parseArbitraryValue(value, resolved.spaceUnit, resolved.spaceBp);
+                const c = spaceClamp(value);
                 return c ? { height: c } : null;
             },
         }, { type: "any" });

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Arbitrary values accept **breakpoint names** in the `minBp`/`maxBp` slots,
+  e.g. `text-fluid-[15_32_sm_lg]`. Names resolve from Tailwind's `theme.screens`
+  (including custom screens) and can be mixed with raw px values.
+- New `breakpoints` config option on `createFluidPlugin()` to add names that
+  aren't Tailwind screens (e.g. `xs`) or override a screen's px value for fluid
+  utilities. Merged on top of `theme.screens`.
+
 ## 1.0.0 — initial release
 
 - `fluidClamp()` core utility — supports `cqw`, `cqh`, `vw`

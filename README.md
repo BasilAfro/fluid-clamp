@@ -1,4 +1,4 @@
-# @basilafro/fluid-clamp
+# ba-fluid-clamp
 
 Tailwind CSS plugin for fluid `clamp()` utilities using `cqw`, `cqh`, and `vw`.
 
@@ -10,7 +10,7 @@ and maximum size across a container or viewport range.
 ## Install
 
 ```bash
-npm install @basilafro/fluid-clamp
+pnpm add @basilafro/fluid-clamp
 ```
 
 ---
@@ -58,12 +58,13 @@ Cards or components that use `cqw` inside them also need it:
 
 ## Config options
 
-| Option      | Type                     | Default         | Description                       |
-| ----------- | ------------------------ | --------------- | --------------------------------- |
-| `textBp`    | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for `text-fluid-*`    |
-| `spaceBp`   | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for spacing utilities |
-| `textUnit`  | `"cqw" \| "cqh" \| "vw"` | `"cqw"`         | Fluid unit for text               |
-| `spaceUnit` | `"cqw" \| "cqh" \| "vw"` | `"cqw"`         | Fluid unit for spacing            |
+| Option        | Type                     | Default         | Description                                                  |
+| ------------- | ------------------------ | --------------- | ------------------------------------------------------------ |
+| `textBp`      | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for `text-fluid-*`                               |
+| `spaceBp`     | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for spacing utilities                            |
+| `textUnit`    | `"cqw" \| "cqh" \| "vw"` | `"cqw"`         | Fluid unit for text                                          |
+| `spaceUnit`   | `"cqw" \| "cqh" \| "vw"` | `"cqw"`         | Fluid unit for spacing                                       |
+| `breakpoints` | `Record<string, number>` | `{}`            | Extra/override named breakpoints for arbitrary values (px)   |
 
 ---
 
@@ -107,6 +108,42 @@ text-fluid-[minSize_maxSize_minBp_maxBp_minPad_maxPad_minSubtract_maxSubtract]
 ```
 
 Same syntax works for all spacing utilities: `p-fluid-[...]`, `w-fluid-[...]`, etc.
+
+### Named breakpoints
+
+The `minBp` and `maxBp` slots accept a **breakpoint name** instead of a px number.
+Names resolve from your Tailwind `theme.screens` (so `sm`, `md`, `lg`, `xl`, `2xl`
+and any custom screens work automatically), plus any names you add via the
+`breakpoints` config option. Names and numbers can be mixed.
+
+```tsx
+{
+  /* Scale 15→32px across the sm→lg range */
+}
+<p className="text-fluid-[15_32_sm_lg]" />;
+
+{
+  /* Mix a custom name with a raw px breakpoint */
+}
+<p className="text-fluid-[15_32_xs_1280]" />;
+
+{
+  /* Works on spacing utilities too */
+}
+<div className="w-fluid-[120_200_md_2xl]" />;
+```
+
+Add names that aren't Tailwind screens (or override a screen's px value just for
+fluid utilities) via config:
+
+```ts
+createFluidPlugin({
+  breakpoints: { xs: 480 }, // now usable as text-fluid-[15_32_xs_lg]
+});
+```
+
+> An unknown breakpoint name produces no class (the utility is silently skipped),
+> the same way an invalid number does.
 
 ### Examples
 

@@ -65,6 +65,9 @@ export function StaticScaleExamples() {
 //
 // When minBp/maxBp are omitted → config breakpoints are used (304/1074).
 // When padding/subtract are omitted → 0 (no subtraction).
+//
+// The minBp/maxBp slots also accept a breakpoint name (a Tailwind screen or a
+// name from the `breakpoints` config), e.g. text-fluid-[15_32_sm_lg].
 
 export function ArbitraryValueExamples() {
   return (
@@ -78,6 +81,13 @@ export function ArbitraryValueExamples() {
       <p className="text-fluid-[14_22_304_1074]">
         same as config defaults, explicit
       </p>
+
+      {/* With named breakpoints — resolve from theme.screens + the
+          `breakpoints` config option. Names and numbers can be mixed. */}
+      <p className="text-fluid-[15_32_sm_lg]">scales across the sm→lg range</p>
+      <div className="w-fluid-[120_200_xs_1280]">
+        custom name xs (480) → raw 1280px
+      </div>
 
       {/* Card with 140→260px range, 8→12px padding */}
       {/* Available space: 124→236px */}

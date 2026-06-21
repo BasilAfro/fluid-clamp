@@ -26,6 +26,10 @@ export default {
       // everything inside the page container uses cqw
       textUnit: "cqw",
       spaceUnit: "cqw",
+
+      // extra named breakpoints usable in arbitrary values, e.g.
+      // text-fluid-[15_32_xs_lg] — merged on top of theme.screens
+      breakpoints: { xs: 480 },
     }),
   ],
 } satisfies Config;

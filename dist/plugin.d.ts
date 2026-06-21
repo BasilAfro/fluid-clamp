@@ -3,11 +3,11 @@
  * Tailwind CSS plugin factory for fluid clamp utilities.
  *
  * Usage in tailwind.config.ts:
- *   import { createFluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { createFluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [createFluidPlugin({ ... })]
  *
  * Zero-config (uses all defaults):
- *   import { fluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { fluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [fluidPlugin]
  */
 import { FluidUnit } from "./fluid";
@@ -43,6 +43,20 @@ export interface FluidPluginConfig {
      * @default "cqw"
      */
     spaceUnit?: FluidUnit;
+    /**
+     * Named breakpoints usable as the min/max bp limits in arbitrary values,
+     * e.g. `text-fluid-[15_32_sm_lg]` (size 15→32px across the sm→lg range).
+     *
+     * These are merged on top of — and override — Tailwind's theme `screens`,
+     * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus
+     * any custom ones) is available automatically. Use this option to add names
+     * that aren't Tailwind screens (e.g. `xs`) or to override a screen's px value
+     * just for fluid utilities.
+     *
+     * Values are in px.
+     * @default {}
+     */
+    breakpoints?: Record<string, number>;
 }
 export declare function createFluidPlugin(config?: FluidPluginConfig): {
     handler: import("tailwindcss/types/config").PluginCreator;
