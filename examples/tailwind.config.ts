@@ -23,7 +23,10 @@ export default {
       textBp: { minBp: 304, maxBp: 1074 },
       spaceBp: { minBp: 304, maxBp: 1074 },
 
-      // everything inside the page container uses cqw
+      // The default unit is "vw". This project renders everything inside a
+      // page container with container-type, so it overrides the default to cqw.
+      // (Individual classes can still opt back to vw with a unit token, and a
+      //  named breakpoint auto-selects vw — see usage.tsx.)
       textUnit: "cqw",
       spaceUnit: "cqw",
 

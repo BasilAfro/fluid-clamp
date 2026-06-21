@@ -47,16 +47,21 @@ export interface FluidPluginConfig {
 
   /**
    * Default fluid unit for text-fluid-* classes.
-   * - "cqw" → needs container-type: inline-size or size on parent (recommended)
+   * - "vw"  → relative to viewport, no container needed (matches breakpoints)
+   * - "cqw" → needs container-type: inline-size or size on parent
    * - "cqh" → needs container-type: size + explicit height on parent
-   * - "vw"  → relative to viewport, no container needed
-   * @default "cqw"
+   *
+   * This is only the fallback. A unit can be chosen per-class with a leading
+   * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
+   * (e.g. `text-fluid-[15_32_sm_lg]`) automatically selects `vw`.
+   * @default "vw"
    */
   textUnit?: FluidUnit;
 
   /**
    * Default fluid unit for spacing fluid-* classes.
-   * @default "cqw"
+   * Same precedence rules as `textUnit`.
+   * @default "vw"
    */
   spaceUnit?: FluidUnit;
 
@@ -88,8 +93,10 @@ interface ResolvedConfig {
 const PLUGIN_DEFAULTS: ResolvedConfig = {
   textBp: { minBp: 320, maxBp: 1280 },
   spaceBp: { minBp: 320, maxBp: 1280 },
-  textUnit: "cqw",
-  spaceUnit: "cqw",
+  // vw matches the viewport-based default breakpoints (and the named Tailwind
+  // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw_15_32].
+  textUnit: "vw",
+  spaceUnit: "vw",
 };
 
 // ─── Breakpoint name resolution ───────────────────────────────────────────────
@@ -160,6 +167,12 @@ function resolveBreakpoints(
 //   text-fluid-[15_32_sm_lg]      ← size 15→32px across the sm→lg range
 //   text-fluid-[15_32_xs_1280]    ← names and numbers can be mixed
 //
+// The fluid unit is chosen automatically, with this precedence:
+//   1. An explicit leading unit token (cqw|cqh|vw) — always wins:
+//        text-fluid-[cqw_15_32]   text-fluid-[vw_15_32_sm_lg]
+//   2. A named breakpoint ⇒ vw (named breakpoints are viewport screens).
+//   3. Otherwise the configured default unit (textUnit/spaceUnit, default vw).
+//
 // Examples — these are all equivalent:
 //   text-fluid-[14_24]
 //   text-fluid-[14px_24px]
@@ -183,25 +196,32 @@ function parseArbitraryValue(
 ): string | null {
   const parts = value.split(" ");
 
-  let fluidUnit = fallbackUnit;
-
+  // An explicit unit token (cqw|cqh|vw) may lead the value; it always wins.
+  let inlineUnit: FluidUnit | null = null;
   if (isFluidUnit(parts[0])) {
-    fluidUnit = parts.shift() as FluidUnit;
+    inlineUnit = parts.shift() as FluidUnit;
   }
 
   // Indices 2 (minBp) and 3 (maxBp) may be breakpoint names; everything else
-  // must be a px number.
+  // must be a px number. A named breakpoint is a viewport screen, so its
+  // presence implies the viewport unit (vw) when no inline unit is given.
+  let usedNamedBp = false;
   const numbers = parts.map((part, i) => {
     if (
       (i === 2 || i === 3) &&
       Object.prototype.hasOwnProperty.call(breakpoints, part)
     ) {
+      usedNamedBp = true;
       return breakpoints[part];
     }
     return stripPx(part);
   });
 
   if (numbers.length < 2 || numbers.some(isNaN)) return null;
+
+  // Unit precedence: inline override → named-breakpoint auto (vw) → config default.
+  const fluidUnit: FluidUnit =
+    inlineUnit ?? (usedNamedBp ? "vw" : fallbackUnit);
 
   const [
     minSize,

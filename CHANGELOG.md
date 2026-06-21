@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Breaking:** the default fluid unit is now `vw` (was `cqw`) for both
+  `textUnit` and `spaceUnit`, matching the viewport-based breakpoints. Pass
+  `textUnit`/`spaceUnit` to restore `cqw`.
+- The fluid unit can be selected **per-class** with a leading unit token, e.g.
+  `text-fluid-[cqw_15_32]` or `text-fluid-[vw_15_32_sm_lg]`.
+- Using a **named breakpoint** (e.g. `text-fluid-[15_32_sm_lg]`) now selects
+  `vw` automatically, since named breakpoints are viewport screens. An inline
+  unit token still overrides this.
 - Arbitrary values accept **breakpoint names** in the `minBp`/`maxBp` slots,
   e.g. `text-fluid-[15_32_sm_lg]`. Names resolve from Tailwind's `theme.screens`
   (including custom screens) and can be mixed with raw px values.

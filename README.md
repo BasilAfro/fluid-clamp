@@ -26,30 +26,25 @@ import { createFluidPlugin } from "@basilafro/fluid-clamp";
 export default {
   plugins: [
     createFluidPlugin({
-      textBp: { minBp: 320, maxBp: 1280 }, // available space after page container padding
+      textBp: { minBp: 320, maxBp: 1280 }, // viewport range to scale across
       spaceBp: { minBp: 320, maxBp: 1280 },
-      textUnit: "cqw",
-      spaceUnit: "cqw",
+      // textUnit / spaceUnit default to "vw" — see "Fluid unit selection" below
     }),
   ],
 };
 ```
 
-### 2. Set container-type on your page container
+### 2. (Only for `cqw`/`cqh`) set container-type
+
+The default unit is `vw`, which is relative to the viewport and needs **no
+setup**. You only need `container-type` if you opt into container units
+(`cqw`/`cqh`) — either as the config default or per-class with a unit token.
 
 ```css
+/* required only when using cqw */
 .page-container {
   max-width: 1280px;
   margin-inline: auto;
-  padding-inline: 8px;
-  container-type: inline-size; /* required for cqw */
-}
-```
-
-Cards or components that use `cqw` inside them also need it:
-
-```css
-.card {
   container-type: inline-size;
 }
 ```
@@ -62,8 +57,8 @@ Cards or components that use `cqw` inside them also need it:
 | ------------- | ------------------------ | --------------- | ------------------------------------------------------------ |
 | `textBp`      | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for `text-fluid-*`                               |
 | `spaceBp`     | `{ minBp, maxBp }`       | `{ 320, 1280 }` | Breakpoints for spacing utilities                            |
-| `textUnit`    | `"cqw" \| "cqh" \| "vw"` | `"cqw"`         | Fluid unit for text                                          |
-| `spaceUnit`   | `"cqw" \| "cqh" \| "vw"` | `"cqw"`         | Fluid unit for spacing                                       |
+| `textUnit`    | `"vw" \| "cqw" \| "cqh"` | `"vw"`          | Default fluid unit for text (overridable per-class)          |
+| `spaceUnit`   | `"vw" \| "cqw" \| "cqh"` | `"vw"`          | Default fluid unit for spacing (overridable per-class)       |
 | `breakpoints` | `Record<string, number>` | `{}`            | Extra/override named breakpoints for arbitrary values (px)   |
 
 ---
@@ -144,6 +139,41 @@ createFluidPlugin({
 
 > An unknown breakpoint name produces no class (the utility is silently skipped),
 > the same way an invalid number does.
+
+### Fluid unit selection
+
+The unit (`vw`, `cqw`, or `cqh`) is chosen automatically, with this precedence:
+
+1. **Inline unit token** — a leading `vw`/`cqw`/`cqh` in the value always wins.
+   This is the explicit "dev input" escape hatch.
+2. **Named breakpoint → `vw`** — a named breakpoint is a viewport screen, so its
+   presence selects `vw` automatically (no token needed).
+3. **Config default** — `textUnit` / `spaceUnit` (default `vw`).
+
+```tsx
+{
+  /* default → vw */
+}
+<p className="text-fluid-[15_32]" />;
+
+{
+  /* named breakpoint → automatically vw */
+}
+<p className="text-fluid-[15_32_sm_lg]" />;
+
+{
+  /* inline token → cqw (needs container-type on an ancestor) */
+}
+<p className="text-fluid-[cqw_15_32]" />;
+
+{
+  /* inline token wins even over the named-breakpoint auto rule */
+}
+<p className="text-fluid-[cqw_15_32_sm_lg]" />;
+```
+
+> `cqw`/`cqh` are container-relative and require `container-type` on an ancestor;
+> `vw` is viewport-relative and needs no setup.
 
 ### Examples
 

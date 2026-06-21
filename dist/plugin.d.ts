@@ -32,15 +32,20 @@ export interface FluidPluginConfig {
     spaceBp?: BreakpointConfig;
     /**
      * Default fluid unit for text-fluid-* classes.
-     * - "cqw" → needs container-type: inline-size or size on parent (recommended)
+     * - "vw"  → relative to viewport, no container needed (matches breakpoints)
+     * - "cqw" → needs container-type: inline-size or size on parent
      * - "cqh" → needs container-type: size + explicit height on parent
-     * - "vw"  → relative to viewport, no container needed
-     * @default "cqw"
+     *
+     * This is only the fallback. A unit can be chosen per-class with a leading
+     * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
+     * (e.g. `text-fluid-[15_32_sm_lg]`) automatically selects `vw`.
+     * @default "vw"
      */
     textUnit?: FluidUnit;
     /**
      * Default fluid unit for spacing fluid-* classes.
-     * @default "cqw"
+     * Same precedence rules as `textUnit`.
+     * @default "vw"
      */
     spaceUnit?: FluidUnit;
     /**

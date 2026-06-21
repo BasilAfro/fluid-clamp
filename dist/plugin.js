@@ -23,8 +23,10 @@ const defaults_1 = require("./defaults");
 const PLUGIN_DEFAULTS = {
     textBp: { minBp: 320, maxBp: 1280 },
     spaceBp: { minBp: 320, maxBp: 1280 },
-    textUnit: "cqw",
-    spaceUnit: "cqw",
+    // vw matches the viewport-based default breakpoints (and the named Tailwind
+    // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw_15_32].
+    textUnit: "vw",
+    spaceUnit: "vw",
 };
 // Parses a single theme `screens` value into px.
 // Handles "640px", "40rem"/"40em" (× rootPx), bare numbers, and the
@@ -81,6 +83,12 @@ function resolveBreakpoints(theme, overrides = {}) {
 //   text-fluid-[15_32_sm_lg]      ← size 15→32px across the sm→lg range
 //   text-fluid-[15_32_xs_1280]    ← names and numbers can be mixed
 //
+// The fluid unit is chosen automatically, with this precedence:
+//   1. An explicit leading unit token (cqw|cqh|vw) — always wins:
+//        text-fluid-[cqw_15_32]   text-fluid-[vw_15_32_sm_lg]
+//   2. A named breakpoint ⇒ vw (named breakpoints are viewport screens).
+//   3. Otherwise the configured default unit (textUnit/spaceUnit, default vw).
+//
 // Examples — these are all equivalent:
 //   text-fluid-[14_24]
 //   text-fluid-[14px_24px]
@@ -95,21 +103,27 @@ function stripPx(s) {
 }
 function parseArbitraryValue(value, fallbackUnit, fallbackBp, breakpoints = {}) {
     const parts = value.split(" ");
-    let fluidUnit = fallbackUnit;
+    // An explicit unit token (cqw|cqh|vw) may lead the value; it always wins.
+    let inlineUnit = null;
     if ((0, fluid_1.isFluidUnit)(parts[0])) {
-        fluidUnit = parts.shift();
+        inlineUnit = parts.shift();
     }
     // Indices 2 (minBp) and 3 (maxBp) may be breakpoint names; everything else
-    // must be a px number.
+    // must be a px number. A named breakpoint is a viewport screen, so its
+    // presence implies the viewport unit (vw) when no inline unit is given.
+    let usedNamedBp = false;
     const numbers = parts.map((part, i) => {
         if ((i === 2 || i === 3) &&
             Object.prototype.hasOwnProperty.call(breakpoints, part)) {
+            usedNamedBp = true;
             return breakpoints[part];
         }
         return stripPx(part);
     });
     if (numbers.length < 2 || numbers.some(isNaN))
         return null;
+    // Unit precedence: inline override → named-breakpoint auto (vw) → config default.
+    const fluidUnit = inlineUnit !== null && inlineUnit !== void 0 ? inlineUnit : (usedNamedBp ? "vw" : fallbackUnit);
     const [minSize, maxSize, minBp, maxBp, minPadding, maxPadding, minSubtract, maxSubtract,] = numbers;
     try {
         return (0, fluid_1.fluidClamp)({

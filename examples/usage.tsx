@@ -68,6 +68,10 @@ export function StaticScaleExamples() {
 //
 // The minBp/maxBp slots also accept a breakpoint name (a Tailwind screen or a
 // name from the `breakpoints` config), e.g. text-fluid-[15_32_sm_lg].
+//
+// Fluid unit precedence: a leading unit token (vw|cqw|cqh) wins → a named
+// breakpoint implies vw → otherwise the config default (vw).
+//   text-fluid-[cqw_15_32]   text-fluid-[15_32_sm_lg]   text-fluid-[15_32]
 
 export function ArbitraryValueExamples() {
   return (
@@ -83,11 +87,19 @@ export function ArbitraryValueExamples() {
       </p>
 
       {/* With named breakpoints — resolve from theme.screens + the
-          `breakpoints` config option. Names and numbers can be mixed. */}
+          `breakpoints` config option. Names and numbers can be mixed.
+          A named breakpoint auto-selects the vw unit. */}
       <p className="text-fluid-[15_32_sm_lg]">scales across the sm→lg range</p>
       <div className="w-fluid-[120_200_xs_1280]">
         custom name xs (480) → raw 1280px
       </div>
+
+      {/* Explicit unit token (vw|cqw|cqh) leads the value and always wins —
+          this is the per-class "dev input" for choosing the unit. */}
+      <p className="text-fluid-[cqw_15_32]">container-relative (needs container-type)</p>
+      <p className="text-fluid-[cqw_15_32_sm_lg]">
+        inline cqw overrides the named-breakpoint vw auto rule
+      </p>
 
       {/* Card with 140→260px range, 8→12px padding */}
       {/* Available space: 124→236px */}
