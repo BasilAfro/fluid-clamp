@@ -190,7 +190,23 @@ export function parseArbitraryValue(
   fallbackRange: NumericBreakpointRange,
   breakpoints: Record<string, number> = {},
 ): string | null {
-  const parts = value.split(" ");
+  // Optional bound markers on the bracket edges break the clamp limits so the
+  // value keeps extrapolating along the same slope: a leading "<" opens the
+  // floor (keep shrinking past the min breakpoint), a trailing ">" opens the
+  // ceiling (keep growing past the max breakpoint). Default: fully clamped.
+  let clampMin = true;
+  let clampMax = true;
+  let body = value;
+  if (body.startsWith("<")) {
+    clampMin = false;
+    body = body.slice(1);
+  }
+  if (body.endsWith(">")) {
+    clampMax = false;
+    body = body.slice(0, -1);
+  }
+
+  const parts = body.split(" ");
 
   // An explicit unit token (cqw|cqh|vw) may lead the value; it always wins.
   let inlineUnit: FluidUnit | null = null;
@@ -221,6 +237,8 @@ export function parseArbitraryValue(
         minBreakpoint: lowAnchor.breakpoint,
         maxBreakpoint: highAnchor.breakpoint,
         fluidUnit: pickUnit(first.named || second.named),
+        clampMin,
+        clampMax,
       });
     } catch {
       return null;
@@ -240,6 +258,8 @@ export function parseArbitraryValue(
       minBreakpoint: fallbackRange.minBreakpoint,
       maxBreakpoint: fallbackRange.maxBreakpoint,
       fluidUnit: pickUnit(false),
+      clampMin,
+      clampMax,
     });
   } catch {
     return null;

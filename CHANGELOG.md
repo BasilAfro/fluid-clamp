@@ -19,6 +19,13 @@
   (negative slope). Equal sizes are no longer an error: they emit the constant
   value directly (`text-fluid-[16_16]` → `1rem`), so data-driven sizes never need
   to special-case the degenerate case. Only `minBreakpoint >= maxBreakpoint` throws.
+- New: **break the clamp bounds** to keep extrapolating along the same slope past
+  a breakpoint. In the class syntax, a leading `<` opens the floor and a trailing
+  `>` opens the ceiling: `text-fluid-[16@320_24@1280>]` (grows past max, `max()`),
+  `text-fluid-[<16@320_24@1280]` (shrinks past min, `min()`),
+  `text-fluid-[<16@320_24@1280>]` (fully linear, bare `calc()`). On `fluidClamp()`
+  the same is controlled by `clampMin`/`clampMax` (both default `true`). Default
+  behavior is unchanged — fully clamped.
 - Fixed: breakpoint names containing **hyphens** (e.g. `tablet-portrait`) now
   resolve in anchors. A registered name is matched in full before a trailing
   `-N` is read as an inset (split on the last dash), so a hyphenated name can

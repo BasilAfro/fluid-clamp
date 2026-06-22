@@ -122,6 +122,26 @@ describe("parseArbitraryValue — valid forms", () => {
     expect(parse("16@320 16@1280")).toBe("1rem");
   });
 
+  it("trailing > opens the ceiling (grows past max, keeps the floor)", () => {
+    expect(parse("16@320 24@1280>")).toBe("max(1rem, 0.833333vw + 0.833333rem)");
+    expect(parse("16 24>")).toBe("max(1rem, 0.833333vw + 0.833333rem)");
+  });
+
+  it("leading < opens the floor (shrinks past min, keeps the ceiling)", () => {
+    expect(parse("<16@320 24@1280")).toBe("min(1.5rem, 0.833333vw + 0.833333rem)");
+  });
+
+  it("both markers emit a bare calc() (fully unbounded)", () => {
+    expect(parse("<16@320 24@1280>")).toBe("calc(0.833333vw + 0.833333rem)");
+    expect(parse("<13 19>")).toBe("calc(0.625vw + 0.6875rem)");
+  });
+
+  it("markers combine with the unit token and inset", () => {
+    expect(parse("cqw 16@320-16 24@1280-24>")).toBe(
+      "max(1rem, 0.840336cqw + 0.840336rem)",
+    );
+  });
+
   it("supports decreasing sizes — anchors, order-independent", () => {
     expect(parse("24@320 16@1280")).toBe("clamp(1rem, -0.833333vw + 1.666667rem, 1.5rem)");
     expect(parse("16@1280 24@320")).toBe(parse("24@320 16@1280"));

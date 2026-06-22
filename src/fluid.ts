@@ -56,6 +56,21 @@ export interface FluidClampOptions {
    * @default 16
    */
   rootFontSize?: number;
+  /**
+   * Keep the lower clamp bound (the floor). When false, the value keeps
+   * extrapolating below the smaller size along the same slope instead of being
+   * clamped — emits `min(ceiling, …)`, or a bare `calc(…)` if `clampMax` is also
+   * false.
+   * @default true
+   */
+  clampMin?: boolean;
+  /**
+   * Keep the upper clamp bound (the ceiling). When false, the value keeps
+   * extrapolating above the larger size along the same slope — emits
+   * `max(floor, …)`, or a bare `calc(…)` if `clampMin` is also false.
+   * @default true
+   */
+  clampMax?: boolean;
 }
 
 export function fluidClamp(options: FluidClampOptions): string {
@@ -67,6 +82,8 @@ export function fluidClamp(options: FluidClampOptions): string {
     fluidUnit,
     lengthUnit = "rem",
     rootFontSize = 16,
+    clampMin = true,
+    clampMax = true,
   } = options;
 
   if (minBreakpoint >= maxBreakpoint) {
@@ -114,5 +131,14 @@ export function fluidClamp(options: FluidClampOptions): string {
         ? ` + ${interceptValue}${lengthUnit}`
         : ` - ${Math.abs(interceptValue)}${lengthUnit}`;
 
-  return `clamp(${lowerBound}${lengthUnit}, ${slopePercent}${fluidUnit}${interceptString}, ${upperBound}${lengthUnit})`;
+  const preferred = `${slopePercent}${fluidUnit}${interceptString}`;
+  const floor = `${lowerBound}${lengthUnit}`;
+  const ceiling = `${upperBound}${lengthUnit}`;
+
+  // Dropping a bound lets the value keep extrapolating past it along the same
+  // slope. A bare linear value must be wrapped in calc() to be valid CSS.
+  if (clampMin && clampMax) return `clamp(${floor}, ${preferred}, ${ceiling})`;
+  if (clampMin) return `max(${floor}, ${preferred})`;
+  if (clampMax) return `min(${ceiling}, ${preferred})`;
+  return `calc(${preferred})`;
 }

@@ -22,7 +22,7 @@ function isFluidUnit(value) {
     return exports.FLUID_UNITS.includes(value);
 }
 function fluidClamp(options) {
-    const { minSize, maxSize, minBreakpoint, maxBreakpoint, fluidUnit, lengthUnit = "rem", rootFontSize = 16, } = options;
+    const { minSize, maxSize, minBreakpoint, maxBreakpoint, fluidUnit, lengthUnit = "rem", rootFontSize = 16, clampMin = true, clampMax = true, } = options;
     if (minBreakpoint >= maxBreakpoint) {
         throw new Error(`fluidClamp: minBreakpoint (${minBreakpoint}) must be less than maxBreakpoint (${maxBreakpoint})`);
     }
@@ -51,6 +51,17 @@ function fluidClamp(options) {
         : interceptValue > 0
             ? ` + ${interceptValue}${lengthUnit}`
             : ` - ${Math.abs(interceptValue)}${lengthUnit}`;
-    return `clamp(${lowerBound}${lengthUnit}, ${slopePercent}${fluidUnit}${interceptString}, ${upperBound}${lengthUnit})`;
+    const preferred = `${slopePercent}${fluidUnit}${interceptString}`;
+    const floor = `${lowerBound}${lengthUnit}`;
+    const ceiling = `${upperBound}${lengthUnit}`;
+    // Dropping a bound lets the value keep extrapolating past it along the same
+    // slope. A bare linear value must be wrapped in calc() to be valid CSS.
+    if (clampMin && clampMax)
+        return `clamp(${floor}, ${preferred}, ${ceiling})`;
+    if (clampMin)
+        return `max(${floor}, ${preferred})`;
+    if (clampMax)
+        return `min(${ceiling}, ${preferred})`;
+    return `calc(${preferred})`;
 }
 //# sourceMappingURL=fluid.js.map

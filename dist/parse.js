@@ -132,7 +132,22 @@ function parseAnchor(token, breakpoints) {
     return { size, breakpoint: breakpoint - inset, named };
 }
 function parseArbitraryValue(value, fallbackUnit, fallbackRange, breakpoints = {}) {
-    const parts = value.split(" ");
+    // Optional bound markers on the bracket edges break the clamp limits so the
+    // value keeps extrapolating along the same slope: a leading "<" opens the
+    // floor (keep shrinking past the min breakpoint), a trailing ">" opens the
+    // ceiling (keep growing past the max breakpoint). Default: fully clamped.
+    let clampMin = true;
+    let clampMax = true;
+    let body = value;
+    if (body.startsWith("<")) {
+        clampMin = false;
+        body = body.slice(1);
+    }
+    if (body.endsWith(">")) {
+        clampMax = false;
+        body = body.slice(0, -1);
+    }
+    const parts = body.split(" ");
     // An explicit unit token (cqw|cqh|vw) may lead the value; it always wins.
     let inlineUnit = null;
     if ((0, fluid_1.isFluidUnit)(parts[0])) {
@@ -157,6 +172,8 @@ function parseArbitraryValue(value, fallbackUnit, fallbackRange, breakpoints = {
                 minBreakpoint: lowAnchor.breakpoint,
                 maxBreakpoint: highAnchor.breakpoint,
                 fluidUnit: pickUnit(first.named || second.named),
+                clampMin,
+                clampMax,
             });
         }
         catch {
@@ -176,6 +193,8 @@ function parseArbitraryValue(value, fallbackUnit, fallbackRange, breakpoints = {
             minBreakpoint: fallbackRange.minBreakpoint,
             maxBreakpoint: fallbackRange.maxBreakpoint,
             fluidUnit: pickUnit(false),
+            clampMin,
+            clampMax,
         });
     }
     catch {

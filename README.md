@@ -178,6 +178,24 @@ for container padding or fixed sibling elements. It's subtracted **directly**
 
 > 3+ anchors (piecewise / non-linear ramps) are reserved for a future release.
 
+### Breaking the bounds
+
+By default the value is clamped at both ends. To let it keep scaling along the
+**same slope** past a breakpoint, open that bound with an edge marker: a leading
+`<` opens the floor (keep shrinking past the min breakpoint), a trailing `>` opens
+the ceiling (keep growing past the max breakpoint). Works on both shorthand and
+anchors, and composes with the unit token and insets.
+
+```tsx
+<p className="text-fluid-[16@320_24@1280]" />;   {/* clamp() — bounded both ends (default) */}
+<p className="text-fluid-[16@320_24@1280>]" />;  {/* max() — grows past the max bp, floor kept */}
+<p className="text-fluid-[<16@320_24@1280]" />;  {/* min() — shrinks past the min bp, ceiling kept */}
+<p className="text-fluid-[<16@320_24@1280>]" />; {/* calc() — fully linear, unbounded */}
+```
+
+The marker maps to the CSS: open ceiling → `max(floor, …)`, open floor →
+`min(ceiling, …)`, both open → a bare `calc(…)`.
+
 ### Fluid unit selection
 
 The unit (`vw`, `cqw`, or `cqh`) is chosen automatically, with this precedence:
@@ -217,7 +235,14 @@ const fontSize = fluidClamp({
   fluidUnit: "cqw",
 });
 // → "clamp(0.875rem, 1.038961cqw + 0.677597rem, 1.375rem)"
+
+// Open a bound to extrapolate past it along the same slope:
+fluidClamp({ minSize: 14, maxSize: 22, minBreakpoint: 304, maxBreakpoint: 1074, fluidUnit: "cqw", clampMax: false });
+// → "max(0.875rem, 1.038961cqw + 0.677597rem)"  (grows past the max breakpoint)
 ```
+
+`clampMin`/`clampMax` default to `true`. Set either to `false` to drop that bound
+(`min()`/`max()`); drop both for a bare `calc()`.
 
 ---
 

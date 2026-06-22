@@ -45,6 +45,21 @@ export interface FluidClampOptions {
      * @default 16
      */
     rootFontSize?: number;
+    /**
+     * Keep the lower clamp bound (the floor). When false, the value keeps
+     * extrapolating below the smaller size along the same slope instead of being
+     * clamped — emits `min(ceiling, …)`, or a bare `calc(…)` if `clampMax` is also
+     * false.
+     * @default true
+     */
+    clampMin?: boolean;
+    /**
+     * Keep the upper clamp bound (the ceiling). When false, the value keeps
+     * extrapolating above the larger size along the same slope — emits
+     * `max(floor, …)`, or a bare `calc(…)` if `clampMin` is also false.
+     * @default true
+     */
+    clampMax?: boolean;
 }
 export declare function fluidClamp(options: FluidClampOptions): string;
 //# sourceMappingURL=fluid.d.ts.map

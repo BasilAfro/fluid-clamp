@@ -73,4 +73,13 @@ describe("createFluidPlugin (integration)", () => {
     const { css } = await generateCss("text-fluid-[16@320-16_24@1280-24]");
     expect(css).toContain("font-size: clamp(1rem, 0.840336vw + 0.840336rem, 1.5rem)");
   });
+
+  it("breaks the clamp bounds via < > edge markers (Tailwind extracts them)", async () => {
+    const { css } = await generateCss(
+      "text-fluid-[16@320_24@1280>] text-fluid-[<16@320_24@1280] text-fluid-[<16@320_24@1280>]",
+    );
+    expect(css).toContain("font-size: max(1rem, 0.833333vw + 0.833333rem)"); // open ceiling
+    expect(css).toContain("font-size: min(1.5rem, 0.833333vw + 0.833333rem)"); // open floor
+    expect(css).toContain("font-size: calc(0.833333vw + 0.833333rem)"); // open both
+  });
 });

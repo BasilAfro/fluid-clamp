@@ -100,6 +100,46 @@ describe("fluidClamp", () => {
     ).toBe("clamp(1.6rem, 0.833333vw + 1.333333rem, 2.4rem)");
   });
 
+  it("opens the ceiling when clampMax is false (keeps the floor via max())", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+        clampMax: false,
+      }),
+    ).toBe("max(1rem, 0.833333vw + 0.833333rem)");
+  });
+
+  it("opens the floor when clampMin is false (keeps the ceiling via min())", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+        clampMin: false,
+      }),
+    ).toBe("min(1.5rem, 0.833333vw + 0.833333rem)");
+  });
+
+  it("emits a bare calc() when both bounds are open", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+        clampMin: false,
+        clampMax: false,
+      }),
+    ).toBe("calc(0.833333vw + 0.833333rem)");
+  });
+
   it("isFluidUnit guards the unit set", () => {
     expect(isFluidUnit("vw")).toBe(true);
     expect(isFluidUnit("cqw")).toBe(true);

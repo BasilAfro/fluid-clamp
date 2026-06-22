@@ -69,6 +69,11 @@ export function StaticScaleExamples() {
 // Fluid unit precedence: a leading unit token (vw|cqw|cqh) wins → a named
 // breakpoint implies vw → otherwise the config default (vw).
 //   text-fluid-[cqw_16_24]   text-fluid-[16@sm_24@lg]   text-fluid-[16_24]
+//
+// Break the bounds to keep scaling past a breakpoint along the same slope:
+//   leading `<` opens the floor, trailing `>` opens the ceiling.
+//   [16@320_24@1280>]   grows past max (max())   [<16@320_24@1280]  shrinks past min (min())
+//   [<16@320_24@1280>]  fully linear (calc())
 
 export function ArbitraryValueExamples() {
   return (
@@ -98,6 +103,12 @@ export function ArbitraryValueExamples() {
       <div className="w-fluid-[120@140-8_200@260-12]">
         fluid width accounting for card padding
       </div>
+
+      {/* Break the bounds — keep scaling past a breakpoint along the same slope.
+          `>` opens the ceiling (keep growing), `<` opens the floor (keep shrinking). */}
+      <h1 className="text-fluid-[32@320_64@1280>]">grows past 64px on huge screens</h1>
+      <p className="text-fluid-[<12@320_16@1280]">shrinks below 12px on tiny screens</p>
+      <p className="text-fluid-[<14@320_20@1280>]">fully linear, no clamp</p>
     </div>
   );
 }
