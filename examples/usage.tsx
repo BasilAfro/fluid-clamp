@@ -57,47 +57,60 @@ export function StaticScaleExamples() {
 // ─── Arbitrary value classes ──────────────────────────────────────────────────
 // Use these for one-off values that don't fit the scale.
 //
-// Syntax (all values in px):
-//   [minSize_maxSize]
-//   [minSize_maxSize_minBp_maxBp]
-//   [minSize_maxSize_minBp_maxBp_minPad_maxPad]
-//   [minSize_maxSize_minBp_maxBp_minPad_maxPad_minSubtract_maxSubtract]
+// Two forms (numbers in px, `px` suffix optional):
+//   [minSize,maxSize]                       shorthand — config breakpoints
+//   [size@breakpoint,size@breakpoint]       anchors — explicit breakpoints (any order)
 //
-// When minBp/maxBp are omitted → config breakpoints are used (304/1074).
-// When padding/subtract are omitted → 0 (no subtraction).
+// Anchor breakpoints accept names (a Tailwind screen or a `breakpoints` entry),
+// and an optional inset `-N` subtracts N px from that breakpoint directly:
+//   [16@sm,24@lg]                named breakpoints
+//   [16@320-16,24@1280-24]       inset → effective breakpoint 304 / 1256
+//
+// Fluid unit precedence: a leading unit token (vw|cqw|cqh) wins → a named
+// breakpoint implies vw → otherwise the config default (vw).
+//   text-fluid-[cqw,16,24]   text-fluid-[16@sm,24@lg]   text-fluid-[16,24]
+//
+// Break the bounds to keep scaling past a breakpoint along the same slope.
+// Markers are positional: leading `<` opens the min-breakpoint end, trailing `>`
+// opens the max-breakpoint end (for a growing scale that's the floor and the
+// ceiling respectively; a shrinking scale flips which CSS fn you get).
+//   [16@320,24@1280>]   keeps growing past 24px    [<16@320,24@1280]  keeps shrinking below 16px
+//   [<16@320,24@1280>]  fully linear (calc())
 
 export function ArbitraryValueExamples() {
   return (
     <div>
-      {/* Basic — uses config breakpoints */}
-      <p className="text-fluid-[13_19]">custom font between 13px and 19px</p>
-      <div className="p-fluid-[10_20]">custom padding</div>
-      <div className="gap-fluid-[6_14]">custom gap</div>
+      {/* Shorthand — uses config breakpoints */}
+      <p className="text-fluid-[13,19]">custom font between 13px and 19px</p>
+      <div className="p-fluid-[10,20]">custom padding</div>
+      <div className="gap-fluid-[6,14]">custom gap</div>
 
-      {/* With explicit breakpoints */}
-      <p className="text-fluid-[14_22_304_1074]">
-        same as config defaults, explicit
+      {/* Anchors — explicit breakpoints (16px at 320, 24px at 1280) */}
+      <p className="text-fluid-[16@320,24@1280]">explicit breakpoints</p>
+
+      {/* Named breakpoints — resolve from theme.screens + the `breakpoints`
+          config option. A named breakpoint auto-selects the vw unit. */}
+      <p className="text-fluid-[16@sm,24@lg]">scales across the sm→lg range</p>
+      <div className="w-fluid-[120@xs,200@xl]">custom name xs (480) → xl</div>
+
+      {/* Explicit unit token (vw|cqw|cqh) leads the value and always wins —
+          this is the per-class "dev input" for choosing the unit. */}
+      <p className="text-fluid-[cqw,16,24]">container-relative (needs container-type)</p>
+      <p className="text-fluid-[cqw,16@sm,24@lg]">
+        inline cqw overrides the named-breakpoint vw auto rule
       </p>
 
-      {/* Card with 140→260px range, 8→12px padding */}
-      {/* Available space: 124→236px */}
-      <div className="w-fluid-[120_200_140_260_8_12]">
+      {/* Inset — subtract container padding / sibling elements from the bp.
+          Card 140→260px, minus 8/12px padding → effective range 132 → 248. */}
+      <div className="w-fluid-[120@140-8,200@260-12]">
         fluid width accounting for card padding
       </div>
 
-      {/* Row card: icon(24px) + gap(6px) at min, icon(32px) + gap(8px) at max */}
-      {/* Container 140→260px, padding 8→12px, sibling elements 30→40px */}
-      <p className="text-fluid-[12_18_140_260_8_12_30_40]">
-        text in a row layout with icon and gap subtracted
-      </p>
-
-      {/* Height-based — needs container-type: size + explicit height on parent */}
-      <p
-        className="text-fluid-[12_20]"
-        style={{ fontSize: "var(--text-cqh, inherit)" }}
-      >
-        {/* For cqh override, use inline style with fluidClamp() directly */}
-      </p>
+      {/* Break the bounds — keep scaling past a breakpoint along the same slope.
+          `>` opens the max-breakpoint end, `<` opens the min-breakpoint end. */}
+      <h1 className="text-fluid-[32@320,64@1280>]">grows past 64px on huge screens</h1>
+      <p className="text-fluid-[<12@320,16@1280]">shrinks below 12px on tiny screens</p>
+      <p className="text-fluid-[<14@320,20@1280>]">fully linear, no clamp</p>
     </div>
   );
 }
@@ -109,20 +122,20 @@ export function ArbitraryValueExamples() {
 import { fluidClamp } from "@basilafro/fluid-clamp";
 
 export function InlineEscapeHatch({
-  minPx,
-  maxPx,
+  minPixels,
+  maxPixels,
 }: {
-  minPx: number;
-  maxPx: number;
+  minPixels: number;
+  maxPixels: number;
 }) {
   return (
     <p
       style={{
         fontSize: fluidClamp({
-          minSize: minPx,
-          maxSize: maxPx,
-          minBp: 304,
-          maxBp: 1074,
+          minSize: minPixels,
+          maxSize: maxPixels,
+          minBreakpoint: 304,
+          maxBreakpoint: 1074,
           fluidUnit: "cqw",
         }),
       }}

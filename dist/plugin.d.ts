@@ -3,46 +3,96 @@
  * Tailwind CSS plugin factory for fluid clamp utilities.
  *
  * Usage in tailwind.config.ts:
- *   import { createFluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { createFluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [createFluidPlugin({ ... })]
  *
  * Zero-config (uses all defaults):
- *   import { fluidPlugin } from "@BasilAfro/fluid-clamp";
+ *   import { fluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [fluidPlugin]
  */
-import { FluidUnit } from "./fluid";
-export interface BreakpointConfig {
-    /** Minimum breakpoint in px (container or viewport width/height) */
-    minBp: number;
-    /** Maximum breakpoint in px */
-    maxBp: number;
-}
+import { FluidUnit, LengthUnit } from "./fluid";
+import { BreakpointConfig } from "./parse";
+export type { BreakpointConfig } from "./parse";
 export interface FluidPluginConfig {
     /**
-     * Breakpoints used for text-fluid-* classes.
-     * Should reflect your page container or viewport range.
-     * @default { minBp: 304, maxBp: 1074 }  (320 - 8px pad, 1098 - 12px pad)
+     * Breakpoint range used for all fluid utilities (text and spacing).
+     * This is the one knob most projects need — text and spacing usually share
+     * the same range. Use `textBreakpointRange`/`spaceBreakpointRange` only to
+     * override one of them.
+     *
+     * `minBreakpoint`/`maxBreakpoint` accept a px number or a breakpoint name (a
+     * Tailwind screen or a name from the `breakpoints` option), e.g.
+     * `{ minBreakpoint: "xs", maxBreakpoint: "lg" }`.
+     * @default { minBreakpoint: 320, maxBreakpoint: 1280 }
      */
-    textBp?: BreakpointConfig;
+    breakpointRange?: BreakpointConfig;
     /**
-     * Breakpoints used for spacing fluid-* classes (padding, margin, gap, size).
-     * Should reflect your component/card container range.
-     * @default { minBp: 304, maxBp: 1074 }
-     */
-    spaceBp?: BreakpointConfig;
-    /**
-     * Default fluid unit for text-fluid-* classes.
-     * - "cqw" → needs container-type: inline-size or size on parent (recommended)
+     * Default fluid unit for all fluid utilities (text and spacing).
+     * - "vw"  → relative to viewport, no container needed (matches breakpoints)
+     * - "cqw" → needs container-type: inline-size or size on parent
      * - "cqh" → needs container-type: size + explicit height on parent
-     * - "vw"  → relative to viewport, no container needed
-     * @default "cqw"
+     *
+     * This is only the fallback. A unit can be chosen per-class with a leading
+     * unit token (e.g. `text-fluid-[cqw,15,32]`), and using a named breakpoint
+     * (e.g. `text-fluid-[15@sm,32@lg]`) automatically selects `vw`.
+     * Use `textUnit`/`spaceUnit` only to override one of them.
+     * @default "vw"
+     */
+    unit?: FluidUnit;
+    /**
+     * Override the breakpoint range for text-fluid-* classes only.
+     * Falls back to `breakpointRange`, then the default. Use this when text should
+     * scale across a different range than spacing (e.g. page/viewport vs component).
+     * @default `breakpointRange`
+     */
+    textBreakpointRange?: BreakpointConfig;
+    /**
+     * Override the breakpoint range for spacing fluid-* classes only.
+     * Falls back to `breakpointRange`, then the default.
+     * @default `breakpointRange`
+     */
+    spaceBreakpointRange?: BreakpointConfig;
+    /**
+     * Override the fluid unit for text-fluid-* classes only.
+     * Falls back to `unit`, then the default. Same precedence rules as `unit`.
+     * @default `unit`
      */
     textUnit?: FluidUnit;
     /**
-     * Default fluid unit for spacing fluid-* classes.
-     * @default "cqw"
+     * Override the fluid unit for spacing fluid-* classes only.
+     * Falls back to `unit`, then the default.
+     * @default `unit`
      */
     spaceUnit?: FluidUnit;
+    /**
+     * Unit for the generated min, max, and intercept length values across every
+     * fluid utility (static scales and arbitrary values alike). The fluid unit
+     * (vw/cqw/cqh) is separate — this only controls the non-fluid lengths.
+     * rem respects user browser font preferences — prefer it over px.
+     * @default "rem"
+     */
+    lengthUnit?: LengthUnit;
+    /**
+     * Root font size in px, used to convert px sizes to rem. Set this to match
+     * your project's root font size when it isn't the browser default. Only
+     * affects `rem` output.
+     * @default 16
+     */
+    rootFontSize?: number;
+    /**
+     * Named breakpoints usable as the breakpoint in arbitrary-value anchors,
+     * e.g. `text-fluid-[15@sm,32@lg]` (size 15→32px across the sm→lg range).
+     *
+     * These are merged on top of — and override — Tailwind's theme `screens`,
+     * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus
+     * any custom ones) is available automatically. Use this option to add names
+     * that aren't Tailwind screens (e.g. `xs`) or to override a screen's px value
+     * just for fluid utilities.
+     *
+     * Values are in px.
+     * @default {}
+     */
+    breakpoints?: Record<string, number>;
 }
 export declare function createFluidPlugin(config?: FluidPluginConfig): {
     handler: import("tailwindcss/types/config").PluginCreator;
