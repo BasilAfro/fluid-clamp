@@ -3,10 +3,10 @@
  * Core math for generating CSS clamp() functions.
  * Supports cqw, cqh, and vw as fluid units.
  *
- * Formula:
+ * Formula (slope may be negative when the size shrinks as the breakpoint grows):
  *   slope     = (maxSize - minSize) / (maxBreakpoint - minBreakpoint)
  *   intercept = minSize - slope * minBreakpoint
- *   clamp(minSize, slope * 100{unit} + intercept{lengthUnit}, maxSize)
+ *   clamp(min(minSize, maxSize), slope * 100{unit} + intercept{lengthUnit}, max(minSize, maxSize))
  */
 
 export const FLUID_UNITS = ["cqw", "cqh", "vw"] as const;
@@ -19,9 +19,9 @@ export function isFluidUnit(value: string): value is FluidUnit {
 }
 
 export interface FluidClampOptions {
-  /** Minimum size in px */
+  /** Size in px at `minBreakpoint`. May be larger than `maxSize` to shrink as the breakpoint grows. */
   minSize: number;
-  /** Maximum size in px */
+  /** Size in px at `maxBreakpoint`. May be smaller than `minSize` to shrink as the breakpoint grows. */
   maxSize: number;
   /**
    * Minimum breakpoint in px.
@@ -64,9 +64,9 @@ export function fluidClamp(options: FluidClampOptions): string {
     rootFontSize = 16,
   } = options;
 
-  if (minSize >= maxSize) {
+  if (minSize === maxSize) {
     throw new Error(
-      `fluidClamp: minSize (${minSize}) must be less than maxSize (${maxSize})`,
+      `fluidClamp: minSize and maxSize must differ (both ${minSize})`,
     );
   }
 
@@ -84,14 +84,17 @@ export function fluidClamp(options: FluidClampOptions): string {
   const minBreakpointValue = toLengthValue(minBreakpoint);
   const maxBreakpointValue = toLengthValue(maxBreakpoint);
 
+  // Slope is negative when the size shrinks as the breakpoint grows.
   const slope =
     (maxSizeValue - minSizeValue) / (maxBreakpointValue - minBreakpointValue);
   const intercept = minSizeValue - slope * minBreakpointValue;
 
   const slopePercent = parseFloat((slope * 100).toFixed(4));
   const interceptValue = parseFloat(intercept.toFixed(4));
-  const minSizeRounded = parseFloat(minSizeValue.toFixed(4));
-  const maxSizeRounded = parseFloat(maxSizeValue.toFixed(4));
+  // clamp() requires floor ≤ ceiling — the smaller size is the floor regardless
+  // of which breakpoint it sits at, so growing and shrinking both work.
+  const lowerBound = parseFloat(Math.min(minSizeValue, maxSizeValue).toFixed(4));
+  const upperBound = parseFloat(Math.max(minSizeValue, maxSizeValue).toFixed(4));
 
   const interceptString =
     interceptValue === 0
@@ -100,5 +103,5 @@ export function fluidClamp(options: FluidClampOptions): string {
         ? ` + ${interceptValue}${lengthUnit}`
         : ` - ${Math.abs(interceptValue)}${lengthUnit}`;
 
-  return `clamp(${minSizeRounded}${lengthUnit}, ${slopePercent}${fluidUnit}${interceptString}, ${maxSizeRounded}${lengthUnit})`;
+  return `clamp(${lowerBound}${lengthUnit}, ${slopePercent}${fluidUnit}${interceptString}, ${upperBound}${lengthUnit})`;
 }
