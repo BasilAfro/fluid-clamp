@@ -18,15 +18,12 @@ function isFluidUnit(value) {
     return exports.FLUID_UNITS.includes(value);
 }
 function fluidClamp(options) {
-    const { minSize, maxSize, minBp: rawMinBp, maxBp: rawMaxBp, fluidUnit, lengthUnit = "rem", rootPx = 16, minPadding = 0, maxPadding = 0, minSubtract = 0, maxSubtract = 0, } = options;
+    const { minSize, maxSize, minBp, maxBp, fluidUnit, lengthUnit = "rem", rootPx = 16, } = options;
     if (minSize >= maxSize) {
         throw new Error(`fluidClamp: minSize (${minSize}) must be less than maxSize (${maxSize})`);
     }
-    const minBp = rawMinBp - minPadding * 2 - minSubtract;
-    const maxBp = rawMaxBp - maxPadding * 2 - maxSubtract;
     if (minBp >= maxBp) {
-        throw new Error(`fluidClamp: resolved minBp (${minBp}) must be less than resolved maxBp (${maxBp}). ` +
-            `Check your padding/subtract values.`);
+        throw new Error(`fluidClamp: minBp (${minBp}) must be less than maxBp (${maxBp})`);
     }
     const convert = (px) => (lengthUnit === "rem" ? px / rootPx : px);
     const minVal = convert(minSize);

@@ -45,25 +45,6 @@ export interface FluidClampOptions {
      * @default 16
      */
     rootPx?: number;
-    /**
-     * Padding to subtract from both sides of minBp.
-     * minBp becomes: minBp - minPadding * 2
-     */
-    minPadding?: number;
-    /**
-     * Padding to subtract from both sides of maxBp.
-     * maxBp becomes: maxBp - maxPadding * 2
-     */
-    maxPadding?: number;
-    /**
-     * Additional fixed elements to subtract from minBp
-     * (e.g. icon width + gap in a row layout).
-     */
-    minSubtract?: number;
-    /**
-     * Additional fixed elements to subtract from maxBp.
-     */
-    maxSubtract?: number;
 }
 export declare function fluidClamp(options: FluidClampOptions): string;
 //# sourceMappingURL=fluid.d.ts.map

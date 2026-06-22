@@ -10,9 +10,13 @@
   - Optional per-anchor **inset** `text-fluid-[16@320-16_24@1280-24]` subtracts px
     from a breakpoint directly (replaces the old `_minPad_maxPad_minSub_maxSub`
     positional tail; merged into one value, no `×2`).
-  - The old 4-/6-/8-position positional forms are removed from the class syntax.
-    `padding`/`subtract` remain available on the `fluidClamp()` function.
+  - The old 4-/6-/8-position positional forms are removed from the class syntax;
+    the per-anchor inset replaces them.
   - (3+ anchors / piecewise ramps are reserved for a future release.)
+- **Breaking:** removed `minPadding`/`maxPadding`/`minSubtract`/`maxSubtract` from
+  `fluidClamp()`. The plugin no longer used them after the anchor redesign, and the
+  class-side inset (`size@bp-N`) replaces them. Callers that need a smaller effective
+  range now subtract it from `minBp`/`maxBp` directly (e.g. `minBp: 320 - 8 * 2`).
 - Config breakpoints (`bp`, `textBp`, `spaceBp`) accept **breakpoint names**
   for `minBp`/`maxBp`, e.g. `bp: { minBp: "xs", maxBp: "lg" }`. Names resolve
   from `theme.screens` + the `breakpoints` option; an unknown name throws a

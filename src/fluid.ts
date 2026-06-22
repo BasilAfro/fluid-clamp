@@ -51,40 +51,17 @@ export interface FluidClampOptions {
    * @default 16
    */
   rootPx?: number;
-  /**
-   * Padding to subtract from both sides of minBp.
-   * minBp becomes: minBp - minPadding * 2
-   */
-  minPadding?: number;
-  /**
-   * Padding to subtract from both sides of maxBp.
-   * maxBp becomes: maxBp - maxPadding * 2
-   */
-  maxPadding?: number;
-  /**
-   * Additional fixed elements to subtract from minBp
-   * (e.g. icon width + gap in a row layout).
-   */
-  minSubtract?: number;
-  /**
-   * Additional fixed elements to subtract from maxBp.
-   */
-  maxSubtract?: number;
 }
 
 export function fluidClamp(options: FluidClampOptions): string {
   const {
     minSize,
     maxSize,
-    minBp: rawMinBp,
-    maxBp: rawMaxBp,
+    minBp,
+    maxBp,
     fluidUnit,
     lengthUnit = "rem",
     rootPx = 16,
-    minPadding = 0,
-    maxPadding = 0,
-    minSubtract = 0,
-    maxSubtract = 0,
   } = options;
 
   if (minSize >= maxSize) {
@@ -93,13 +70,9 @@ export function fluidClamp(options: FluidClampOptions): string {
     );
   }
 
-  const minBp = rawMinBp - minPadding * 2 - minSubtract;
-  const maxBp = rawMaxBp - maxPadding * 2 - maxSubtract;
-
   if (minBp >= maxBp) {
     throw new Error(
-      `fluidClamp: resolved minBp (${minBp}) must be less than resolved maxBp (${maxBp}). ` +
-        `Check your padding/subtract values.`,
+      `fluidClamp: minBp (${minBp}) must be less than maxBp (${maxBp})`,
     );
   }
 
