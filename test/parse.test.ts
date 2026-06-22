@@ -17,6 +17,10 @@ describe("stripPx", () => {
   it("returns NaN for non-numbers", () => {
     expect(Number.isNaN(stripPx("abc"))).toBe(true);
   });
+  it("returns NaN for an empty string (not 0)", () => {
+    expect(Number.isNaN(stripPx(""))).toBe(true);
+    expect(Number.isNaN(stripPx("px"))).toBe(true);
+  });
 });
 
 describe("parseAnchor", () => {
@@ -40,6 +44,10 @@ describe("parseAnchor", () => {
   });
   it("returns null for a non-numeric size", () => {
     expect(parseAnchor("abc@320", BP)).toBeNull();
+  });
+  it("returns null when the breakpoint is empty (e.g. a negative inset wipes it)", () => {
+    expect(parseAnchor("16@-320", BP)).toBeNull();
+    expect(parseAnchor("16@", BP)).toBeNull();
   });
 });
 

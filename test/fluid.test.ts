@@ -67,6 +67,47 @@ describe("fluidClamp", () => {
     expect(padded.endsWith("1.5rem)")).toBe(true);
   });
 
+  it("subtracts maxPadding (×2) from maxBp", () => {
+    // maxBp 1280 - 8*2 = 1264, narrower range -> larger slope
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBp: 320,
+        maxBp: 1280,
+        fluidUnit: "vw",
+        maxPadding: 8,
+      }),
+    ).toBe("clamp(1rem, 0.8475vw + 0.8305rem, 1.5rem)");
+  });
+
+  it("subtracts minSubtract/maxSubtract directly (no ×2)", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBp: 320,
+        maxBp: 1280,
+        fluidUnit: "vw",
+        minSubtract: 16,
+        maxSubtract: 24,
+      }),
+    ).toBe("clamp(1rem, 0.8403vw + 0.8403rem, 1.5rem)");
+  });
+
+  it("honours a custom rootPx for rem conversion", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBp: 320,
+        maxBp: 1280,
+        fluidUnit: "vw",
+        rootPx: 10,
+      }),
+    ).toBe("clamp(1.6rem, 0.8333vw + 1.3333rem, 2.4rem)");
+  });
+
   it("isFluidUnit guards the unit set", () => {
     expect(isFluidUnit("vw")).toBe(true);
     expect(isFluidUnit("cqw")).toBe(true);

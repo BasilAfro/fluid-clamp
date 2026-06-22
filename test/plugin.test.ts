@@ -60,4 +60,10 @@ describe("createFluidPlugin (integration)", () => {
     const { css } = await gen("text-fluid-[16@320_20@768_24@1280]");
     expect(css).not.toContain("clamp(");
   });
+
+  it("applies a per-anchor inset in an arbitrary value", async () => {
+    // 320-16 -> 304, 1280-24 -> 1256; subtracted directly (no ×2)
+    const { css } = await gen("text-fluid-[16@320-16_24@1280-24]");
+    expect(css).toContain("font-size: clamp(1rem, 0.8403vw + 0.8403rem, 1.5rem)");
+  });
 });

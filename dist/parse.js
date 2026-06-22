@@ -92,8 +92,11 @@ function resolveBpConfig(bp, bpMap, label) {
 //   3. Otherwise the configured default unit (textUnit/spaceUnit, default vw).
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
+// An empty numeric part is NaN, not 0 (Number("") is 0) — so a malformed
+// token like "16@-320" (empty bp after the inset split) is rejected.
 function stripPx(s) {
-    return Number(s.endsWith("px") ? s.slice(0, -2) : s);
+    const n = s.endsWith("px") ? s.slice(0, -2) : s;
+    return n === "" ? NaN : Number(n);
 }
 // Parses one `size@bp` or `size@bp-inset` anchor token. Returns null if malformed.
 function parseAnchor(token, breakpoints) {

@@ -125,8 +125,11 @@ export function resolveBpConfig(
 
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
+// An empty numeric part is NaN, not 0 (Number("") is 0) — so a malformed
+// token like "16@-320" (empty bp after the inset split) is rejected.
 export function stripPx(s: string): number {
-  return Number(s.endsWith("px") ? s.slice(0, -2) : s);
+  const n = s.endsWith("px") ? s.slice(0, -2) : s;
+  return n === "" ? NaN : Number(n);
 }
 
 export interface ParsedAnchor {
