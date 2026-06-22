@@ -29,6 +29,32 @@ const PLUGIN_DEFAULTS = {
     textUnit: "vw",
     spaceUnit: "vw",
 };
+// ─── Spacing utilities ────────────────────────────────────────────────────────
+// Single source of truth for the spacing prefixes and the CSS declarations each
+// one applies a fluid clamp value to. Both the static scale (`p-fluid-4`) and the
+// arbitrary-value matchers (`p-fluid-[…]`) are generated from this map, so the
+// prefix → property mapping lives in exactly one place.
+const SPACE_PROPS = {
+    p: (c) => ({ padding: c }),
+    px: (c) => ({ paddingLeft: c, paddingRight: c }),
+    py: (c) => ({ paddingTop: c, paddingBottom: c }),
+    pt: (c) => ({ paddingTop: c }),
+    pr: (c) => ({ paddingRight: c }),
+    pb: (c) => ({ paddingBottom: c }),
+    pl: (c) => ({ paddingLeft: c }),
+    m: (c) => ({ margin: c }),
+    mx: (c) => ({ marginLeft: c, marginRight: c }),
+    my: (c) => ({ marginTop: c, marginBottom: c }),
+    mt: (c) => ({ marginTop: c }),
+    mr: (c) => ({ marginRight: c }),
+    mb: (c) => ({ marginBottom: c }),
+    ml: (c) => ({ marginLeft: c }),
+    gap: (c) => ({ gap: c }),
+    "gap-x": (c) => ({ columnGap: c }),
+    "gap-y": (c) => ({ rowGap: c }),
+    w: (c) => ({ width: c }),
+    h: (c) => ({ height: c }),
+};
 // ─── Plugin factory ───────────────────────────────────────────────────────────
 function createFluidPlugin(config = {}) {
     var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -71,25 +97,9 @@ function createFluidPlugin(config = {}) {
                 fluidUnit: resolved.spaceUnit,
                 ...spaceBp,
             });
-            spaceUtilities[`.p-fluid-${key}`] = { padding: c };
-            spaceUtilities[`.px-fluid-${key}`] = { paddingLeft: c, paddingRight: c };
-            spaceUtilities[`.py-fluid-${key}`] = { paddingTop: c, paddingBottom: c };
-            spaceUtilities[`.pt-fluid-${key}`] = { paddingTop: c };
-            spaceUtilities[`.pr-fluid-${key}`] = { paddingRight: c };
-            spaceUtilities[`.pb-fluid-${key}`] = { paddingBottom: c };
-            spaceUtilities[`.pl-fluid-${key}`] = { paddingLeft: c };
-            spaceUtilities[`.m-fluid-${key}`] = { margin: c };
-            spaceUtilities[`.mx-fluid-${key}`] = { marginLeft: c, marginRight: c };
-            spaceUtilities[`.my-fluid-${key}`] = { marginTop: c, marginBottom: c };
-            spaceUtilities[`.mt-fluid-${key}`] = { marginTop: c };
-            spaceUtilities[`.mr-fluid-${key}`] = { marginRight: c };
-            spaceUtilities[`.mb-fluid-${key}`] = { marginBottom: c };
-            spaceUtilities[`.ml-fluid-${key}`] = { marginLeft: c };
-            spaceUtilities[`.gap-fluid-${key}`] = { gap: c };
-            spaceUtilities[`.gap-x-fluid-${key}`] = { columnGap: c };
-            spaceUtilities[`.gap-y-fluid-${key}`] = { rowGap: c };
-            spaceUtilities[`.w-fluid-${key}`] = { width: c };
-            spaceUtilities[`.h-fluid-${key}`] = { height: c };
+            for (const [prefix, toDecls] of Object.entries(SPACE_PROPS)) {
+                spaceUtilities[`.${prefix}-fluid-${key}`] = toDecls(c);
+            }
         }
         addUtilities({ ...typeUtilities, ...spaceUtilities });
         // ── Dynamic arbitrary values ─────────────────────────────────────────────
@@ -104,84 +114,13 @@ function createFluidPlugin(config = {}) {
                 return c ? { fontSize: c } : null;
             },
         }, { type: "any" });
-        matchUtilities({
-            "p-fluid": (value) => {
+        matchUtilities(Object.fromEntries(Object.entries(SPACE_PROPS).map(([prefix, toDecls]) => [
+            `${prefix}-fluid`,
+            (value) => {
                 const c = spaceClamp(value);
-                return c ? { padding: c } : null;
+                return c ? toDecls(c) : null;
             },
-            "px-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { paddingLeft: c, paddingRight: c } : null;
-            },
-            "py-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { paddingTop: c, paddingBottom: c } : null;
-            },
-            "pt-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { paddingTop: c } : null;
-            },
-            "pr-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { paddingRight: c } : null;
-            },
-            "pb-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { paddingBottom: c } : null;
-            },
-            "pl-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { paddingLeft: c } : null;
-            },
-            "m-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { margin: c } : null;
-            },
-            "mx-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { marginLeft: c, marginRight: c } : null;
-            },
-            "my-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { marginTop: c, marginBottom: c } : null;
-            },
-            "mt-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { marginTop: c } : null;
-            },
-            "mr-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { marginRight: c } : null;
-            },
-            "mb-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { marginBottom: c } : null;
-            },
-            "ml-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { marginLeft: c } : null;
-            },
-            "gap-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { gap: c } : null;
-            },
-            "gap-x-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { columnGap: c } : null;
-            },
-            "gap-y-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { rowGap: c } : null;
-            },
-            "w-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { width: c } : null;
-            },
-            "h-fluid": (value) => {
-                const c = spaceClamp(value);
-                return c ? { height: c } : null;
-            },
-        }, { type: "any" });
+        ])), { type: "any" });
     });
 }
 // ─── Convenience export ───────────────────────────────────────────────────────
