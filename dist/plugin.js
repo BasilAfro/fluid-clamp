@@ -93,10 +93,11 @@ function createFluidPlugin(config = {}) {
         }
         addUtilities({ ...typeUtilities, ...spaceUtilities });
         // ── Dynamic arbitrary values ─────────────────────────────────────────────
-        // text-fluid-[14_24]
-        // text-fluid-[14_24_304_1074]
-        // text-fluid-[14_24_140_260_8_12]          ← with padding subtraction
-        // text-fluid-[14_24_140_260_8_12_32_40]    ← with padding + sibling subtraction
+        // text-fluid-[16_24]                ← shorthand: two sizes, config breakpoints
+        // text-fluid-[16@320_24@1280]       ← anchors: size pinned to explicit bp
+        // text-fluid-[16@sm_24@lg]          ← anchors with breakpoint names
+        // text-fluid-[16@320-16_24@1280-24] ← per-anchor inset (effective bp = bp − N)
+        // text-fluid-[cqw_16_24]            ← leading unit token (overrides the default)
         matchUtilities({
             "text-fluid": (value) => {
                 const c = textClamp(value);

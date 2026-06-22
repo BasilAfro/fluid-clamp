@@ -46,7 +46,7 @@ export interface FluidPluginConfig {
    *
    * This is only the fallback. A unit can be chosen per-class with a leading
    * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
-   * (e.g. `text-fluid-[15_32_sm_lg]`) automatically selects `vw`.
+   * (e.g. `text-fluid-[15@sm_32@lg]`) automatically selects `vw`.
    * Use `textUnit`/`spaceUnit` only to override one of them.
    * @default "vw"
    */
@@ -82,8 +82,8 @@ export interface FluidPluginConfig {
   spaceUnit?: FluidUnit;
 
   /**
-   * Named breakpoints usable as the min/max bp limits in arbitrary values,
-   * e.g. `text-fluid-[15_32_sm_lg]` (size 15→32px across the sm→lg range).
+   * Named breakpoints usable as the bp in arbitrary-value anchors,
+   * e.g. `text-fluid-[15@sm_32@lg]` (size 15→32px across the sm→lg range).
    *
    * These are merged on top of — and override — Tailwind's theme `screens`,
    * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus
@@ -199,10 +199,11 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
     addUtilities({ ...typeUtilities, ...spaceUtilities });
 
     // ── Dynamic arbitrary values ─────────────────────────────────────────────
-    // text-fluid-[14_24]
-    // text-fluid-[14_24_304_1074]
-    // text-fluid-[14_24_140_260_8_12]          ← with padding subtraction
-    // text-fluid-[14_24_140_260_8_12_32_40]    ← with padding + sibling subtraction
+    // text-fluid-[16_24]                ← shorthand: two sizes, config breakpoints
+    // text-fluid-[16@320_24@1280]       ← anchors: size pinned to explicit bp
+    // text-fluid-[16@sm_24@lg]          ← anchors with breakpoint names
+    // text-fluid-[16@320-16_24@1280-24] ← per-anchor inset (effective bp = bp − N)
+    // text-fluid-[cqw_16_24]            ← leading unit token (overrides the default)
 
     matchUtilities(
       {

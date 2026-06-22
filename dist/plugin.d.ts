@@ -32,7 +32,7 @@ export interface FluidPluginConfig {
      *
      * This is only the fallback. A unit can be chosen per-class with a leading
      * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
-     * (e.g. `text-fluid-[15_32_sm_lg]`) automatically selects `vw`.
+     * (e.g. `text-fluid-[15@sm_32@lg]`) automatically selects `vw`.
      * Use `textUnit`/`spaceUnit` only to override one of them.
      * @default "vw"
      */
@@ -63,8 +63,8 @@ export interface FluidPluginConfig {
      */
     spaceUnit?: FluidUnit;
     /**
-     * Named breakpoints usable as the min/max bp limits in arbitrary values,
-     * e.g. `text-fluid-[15_32_sm_lg]` (size 15→32px across the sm→lg range).
+     * Named breakpoints usable as the bp in arbitrary-value anchors,
+     * e.g. `text-fluid-[15@sm_32@lg]` (size 15→32px across the sm→lg range).
      *
      * These are merged on top of — and override — Tailwind's theme `screens`,
      * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus
