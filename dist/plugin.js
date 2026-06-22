@@ -25,9 +25,11 @@ const PLUGIN_DEFAULTS = {
     textBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
     spaceBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
     // vw matches the viewport-based default breakpoints (and the named Tailwind
-    // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw_15_32].
+    // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw,15,32].
     textUnit: "vw",
     spaceUnit: "vw",
+    lengthUnit: "rem",
+    rootFontSize: 16,
 };
 // ─── Spacing utilities ────────────────────────────────────────────────────────
 // Single source of truth for the spacing prefixes and the CSS declarations each
@@ -57,13 +59,20 @@ const SPACE_PROPS = {
 };
 // ─── Plugin factory ───────────────────────────────────────────────────────────
 function createFluidPlugin(config = {}) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     // Precedence: per-target override → general knob → built-in default.
     const resolved = {
         textBreakpointRange: (_b = (_a = config.textBreakpointRange) !== null && _a !== void 0 ? _a : config.breakpointRange) !== null && _b !== void 0 ? _b : PLUGIN_DEFAULTS.textBreakpointRange,
         spaceBreakpointRange: (_d = (_c = config.spaceBreakpointRange) !== null && _c !== void 0 ? _c : config.breakpointRange) !== null && _d !== void 0 ? _d : PLUGIN_DEFAULTS.spaceBreakpointRange,
         textUnit: (_f = (_e = config.textUnit) !== null && _e !== void 0 ? _e : config.unit) !== null && _f !== void 0 ? _f : PLUGIN_DEFAULTS.textUnit,
         spaceUnit: (_h = (_g = config.spaceUnit) !== null && _g !== void 0 ? _g : config.unit) !== null && _h !== void 0 ? _h : PLUGIN_DEFAULTS.spaceUnit,
+        lengthUnit: (_j = config.lengthUnit) !== null && _j !== void 0 ? _j : PLUGIN_DEFAULTS.lengthUnit,
+        rootFontSize: (_k = config.rootFontSize) !== null && _k !== void 0 ? _k : PLUGIN_DEFAULTS.rootFontSize,
+    };
+    // Length options forwarded to every fluidClamp call (static and arbitrary).
+    const lengthOptions = {
+        lengthUnit: resolved.lengthUnit,
+        rootFontSize: resolved.rootFontSize,
     };
     return (0, plugin_1.default)(function ({ addUtilities, matchUtilities, theme }) {
         // Named breakpoints: Tailwind's theme screens + plugin overrides.
@@ -72,8 +81,8 @@ function createFluidPlugin(config = {}) {
         const textBreakpointRange = (0, parse_1.resolveBreakpointConfig)(resolved.textBreakpointRange, breakpointMap, "textBreakpointRange");
         const spaceBreakpointRange = (0, parse_1.resolveBreakpointConfig)(resolved.spaceBreakpointRange, breakpointMap, "spaceBreakpointRange");
         // Bound parsers so arbitrary-value callbacks stay terse.
-        const textClamp = (value) => (0, parse_1.parseArbitraryValue)(value, resolved.textUnit, textBreakpointRange, breakpointMap);
-        const spaceClamp = (value) => (0, parse_1.parseArbitraryValue)(value, resolved.spaceUnit, spaceBreakpointRange, breakpointMap);
+        const textClamp = (value) => (0, parse_1.parseArbitraryValue)(value, resolved.textUnit, textBreakpointRange, breakpointMap, lengthOptions);
+        const spaceClamp = (value) => (0, parse_1.parseArbitraryValue)(value, resolved.spaceUnit, spaceBreakpointRange, breakpointMap, lengthOptions);
         // ── Static type scale ────────────────────────────────────────────────────
         // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
         const typeUtilities = Object.fromEntries(Object.entries(defaults_1.DEFAULT_TYPE_SCALE).map(([key, { minSize, maxSize }]) => [
@@ -84,6 +93,7 @@ function createFluidPlugin(config = {}) {
                     maxSize,
                     fluidUnit: resolved.textUnit,
                     ...textBreakpointRange,
+                    ...lengthOptions,
                 }),
             },
         ]));
@@ -96,6 +106,7 @@ function createFluidPlugin(config = {}) {
                 maxSize,
                 fluidUnit: resolved.spaceUnit,
                 ...spaceBreakpointRange,
+                ...lengthOptions,
             });
             for (const [prefix, toDeclarations] of Object.entries(SPACE_PROPS)) {
                 spaceUtilities[`.${prefix}-fluid-${key}`] = toDeclarations(clampValue);

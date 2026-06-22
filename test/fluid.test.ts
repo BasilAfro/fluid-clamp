@@ -26,6 +26,18 @@ describe("fluidClamp", () => {
     ).toBe("clamp(1rem, 0.833333cqw + 0.833333rem, 1.5rem)");
   });
 
+  it("honours the cqh fluid unit", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "cqh",
+      }),
+    ).toBe("clamp(1rem, 0.833333cqh + 0.833333rem, 1.5rem)");
+  });
+
   it("emits px when lengthUnit is px", () => {
     const output = fluidClamp({
       minSize: 16,
@@ -124,6 +136,20 @@ describe("fluidClamp", () => {
         clampMin: false,
       }),
     ).toBe("min(1.5rem, 0.833333vw + 0.833333rem)");
+  });
+
+  it("opens a bound with a px length unit", () => {
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+        lengthUnit: "px",
+        clampMax: false,
+      }),
+    ).toBe("max(16px, 0.833333vw + 13.333333px)");
   });
 
   it("emits a bare calc() when both bounds are open", () => {

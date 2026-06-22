@@ -148,6 +148,36 @@ describe("parseArbitraryValue — valid forms", () => {
     expect(parse("16@1280 24@320")).toBe(parse("24@320 16@1280"));
   });
 
+  // Markers are positional: `<` opens the min-breakpoint end, `>` the
+  // max-breakpoint end — regardless of scale direction. For a shrinking scale
+  // the larger size sits at the min breakpoint, so the size bound each marker
+  // opens is the opposite of the growing case.
+  it("shrinking: < opens the min-breakpoint end (keeps growing past it, floor kept)", () => {
+    expect(parse("<24@320,16@1280")).toBe(
+      "max(1rem, -0.833333vw + 1.666667rem)",
+    );
+  });
+
+  it("shrinking: > opens the max-breakpoint end (keeps shrinking past it, ceiling kept)", () => {
+    expect(parse("24@320,16@1280>")).toBe(
+      "min(1.5rem, -0.833333vw + 1.666667rem)",
+    );
+  });
+
+  it("shrinking: both markers emit a bare calc()", () => {
+    expect(parse("<24@320,16@1280>")).toBe("calc(-0.833333vw + 1.666667rem)");
+  });
+
+  it("the same marker yields opposite clamp fns for growing vs shrinking", () => {
+    // `>` → max() when growing (opens ceiling), min() when shrinking (opens floor)
+    expect(parse("16@320,24@1280>").startsWith("max(")).toBe(true);
+    expect(parse("24@320,16@1280>").startsWith("min(")).toBe(true);
+  });
+
+  it("shrinking shorthand honours markers too", () => {
+    expect(parse("<24,16")).toBe("max(1rem, -0.833333vw + 1.666667rem)");
+  });
+
   it("leading unit token overrides the default", () => {
     expect(parse("cqw 16 24")).toBe("clamp(1rem, 0.833333cqw + 0.833333rem, 1.5rem)");
   });
@@ -176,6 +206,24 @@ describe("parseArbitraryValue — comma separator (primary) + space fallback", (
   it("still accepts the legacy space/underscore separator (same result)", () => {
     expect(parse("16@320 24@1280")).toBe(parse("16@320,24@1280"));
     expect(parse("cqw 16@sm 24@lg")).toBe(parse("cqw,16@sm,24@lg"));
+  });
+});
+
+describe("parseArbitraryValue — length options", () => {
+  it("forwards lengthUnit (px) to the generated value", () => {
+    expect(
+      parseArbitraryValue("16,24", "vw", FALLBACK_RANGE, BREAKPOINTS, {
+        lengthUnit: "px",
+      }),
+    ).toBe("clamp(16px, 0.833333vw + 13.333333px, 24px)");
+  });
+
+  it("forwards a custom rootFontSize to the rem conversion", () => {
+    expect(
+      parseArbitraryValue("16,24", "vw", FALLBACK_RANGE, BREAKPOINTS, {
+        rootFontSize: 10,
+      }),
+    ).toBe("clamp(1.6rem, 0.833333vw + 1.333333rem, 2.4rem)");
   });
 });
 

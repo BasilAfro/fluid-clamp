@@ -87,4 +87,31 @@ describe("createFluidPlugin (integration)", () => {
     const { css } = await generateCss("text-fluid-[16@320_24@1280]");
     expect(css).toContain("font-size: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
   });
+
+  it("emits the static space scale (default vw, 320..1280)", async () => {
+    const { css } = await generateCss("p-fluid-4 gap-fluid-6 w-fluid-12");
+    // p-fluid-4 → {16,24}, gap-fluid-6 → {24,36}, w-fluid-12 → {48,80}
+    expect(css).toContain("padding: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("gap: clamp(1.5rem, 1.25vw + 1.25rem, 2.25rem)");
+    expect(css).toContain("width: clamp(3rem, 3.333333vw + 2.333333rem, 5rem)");
+  });
+
+  it("generates a cqh unit via the inline token", async () => {
+    const { css } = await generateCss("text-fluid-[cqh,16,24]");
+    expect(css).toContain("font-size: clamp(1rem, 0.833333cqh + 0.833333rem, 1.5rem)");
+  });
+
+  it("lengthUnit: px applies to static scale and arbitrary values", async () => {
+    const { css } = await generateCss("text-fluid-base text-fluid-[16,24]", {
+      lengthUnit: "px",
+    });
+    expect(css).toContain("font-size: clamp(16px, 0.208333vw + 15.333333px, 18px)"); // base {16,18}
+    expect(css).toContain("font-size: clamp(16px, 0.833333vw + 13.333333px, 24px)"); // arbitrary
+  });
+
+  it("rootFontSize changes the rem conversion", async () => {
+    const { css } = await generateCss("text-fluid-base", { rootFontSize: 10 });
+    // base {16,18} at root 10 → floor 1.6rem, ceiling 1.8rem
+    expect(css).toContain("font-size: clamp(1.6rem, 0.208333vw + 1.533333rem, 1.8rem)");
+  });
 });

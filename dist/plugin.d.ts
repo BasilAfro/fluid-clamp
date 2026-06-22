@@ -10,7 +10,7 @@
  *   import { fluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [fluidPlugin]
  */
-import { FluidUnit } from "./fluid";
+import { FluidUnit, LengthUnit } from "./fluid";
 import { BreakpointConfig } from "./parse";
 export type { BreakpointConfig } from "./parse";
 export interface FluidPluginConfig {
@@ -33,8 +33,8 @@ export interface FluidPluginConfig {
      * - "cqh" → needs container-type: size + explicit height on parent
      *
      * This is only the fallback. A unit can be chosen per-class with a leading
-     * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
-     * (e.g. `text-fluid-[15@sm_32@lg]`) automatically selects `vw`.
+     * unit token (e.g. `text-fluid-[cqw,15,32]`), and using a named breakpoint
+     * (e.g. `text-fluid-[15@sm,32@lg]`) automatically selects `vw`.
      * Use `textUnit`/`spaceUnit` only to override one of them.
      * @default "vw"
      */
@@ -65,8 +65,23 @@ export interface FluidPluginConfig {
      */
     spaceUnit?: FluidUnit;
     /**
+     * Unit for the generated min, max, and intercept length values across every
+     * fluid utility (static scales and arbitrary values alike). The fluid unit
+     * (vw/cqw/cqh) is separate — this only controls the non-fluid lengths.
+     * rem respects user browser font preferences — prefer it over px.
+     * @default "rem"
+     */
+    lengthUnit?: LengthUnit;
+    /**
+     * Root font size in px, used to convert px sizes to rem. Set this to match
+     * your project's root font size when it isn't the browser default. Only
+     * affects `rem` output.
+     * @default 16
+     */
+    rootFontSize?: number;
+    /**
      * Named breakpoints usable as the breakpoint in arbitrary-value anchors,
-     * e.g. `text-fluid-[15@sm_32@lg]` (size 15→32px across the sm→lg range).
+     * e.g. `text-fluid-[15@sm,32@lg]` (size 15→32px across the sm→lg range).
      *
      * These are merged on top of — and override — Tailwind's theme `screens`,
      * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus

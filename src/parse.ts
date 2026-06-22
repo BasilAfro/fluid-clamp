@@ -4,7 +4,7 @@
  * plugin glue so they can be unit-tested directly.
  */
 
-import { fluidClamp, FluidUnit, isFluidUnit } from "./fluid";
+import { fluidClamp, FluidUnit, LengthUnit, isFluidUnit } from "./fluid";
 
 // ─── Breakpoint config ────────────────────────────────────────────────────────
 
@@ -128,8 +128,12 @@ export function resolveBreakpointConfig(
 //      account for container padding or sibling elements. (3+ anchors / piecewise
 //      ramps are reserved for a future release.)
 //
-//   Optional bound markers on the bracket edges break the clamp limits: a leading
-//   "<" opens the floor, a trailing ">" opens the ceiling, e.g. text-fluid-[<16@320,24@1280>].
+//   Optional bound markers on the bracket edges break the clamp limits and keep
+//   the value extrapolating along the same slope. They are POSITIONAL: a leading
+//   "<" opens the min-breakpoint end, a trailing ">" opens the max-breakpoint end
+//   — e.g. text-fluid-[<16@320,24@1280>]. For a shrinking scale the smaller size
+//   sits at the max breakpoint, so which size bound each marker opens flips
+//   accordingly (see resolveBoundFlags).
 //
 // The fluid unit is chosen automatically, with this precedence:
 //   1. An explicit leading unit token (cqw|cqh|vw) — always wins:
@@ -188,25 +192,52 @@ export function parseAnchor(
   return { size, breakpoint: breakpoint - inset, named };
 }
 
+/** Length-output options forwarded verbatim to fluidClamp. */
+export interface LengthOptions {
+  lengthUnit?: LengthUnit;
+  rootFontSize?: number;
+}
+
+// Maps the positional bound markers to fluidClamp's size-based flags.
+// `<` opens the min-breakpoint end, `>` the max-breakpoint end. fluidClamp's
+// floor is the smaller size and its ceiling the larger one: for a growing scale
+// the min-breakpoint end IS the floor, but for a shrinking scale
+// (minSize > maxSize) the min-breakpoint end is the ceiling, so the two flags
+// swap.
+function resolveBoundFlags(
+  openMinBreakpointEnd: boolean,
+  openMaxBreakpointEnd: boolean,
+  minSize: number,
+  maxSize: number,
+): { clampMin: boolean; clampMax: boolean } {
+  const growing = minSize <= maxSize;
+  const openFloor = growing ? openMinBreakpointEnd : openMaxBreakpointEnd;
+  const openCeiling = growing ? openMaxBreakpointEnd : openMinBreakpointEnd;
+  return { clampMin: !openFloor, clampMax: !openCeiling };
+}
+
 export function parseArbitraryValue(
   value: string,
   fallbackUnit: FluidUnit,
   fallbackRange: NumericBreakpointRange,
   breakpoints: Record<string, number> = {},
+  lengthOptions: LengthOptions = {},
 ): string | null {
   // Optional bound markers on the bracket edges break the clamp limits so the
-  // value keeps extrapolating along the same slope: a leading "<" opens the
-  // floor (keep shrinking past the min breakpoint), a trailing ">" opens the
-  // ceiling (keep growing past the max breakpoint). Default: fully clamped.
-  let clampMin = true;
-  let clampMax = true;
+  // value keeps extrapolating along the same slope. They are POSITIONAL: a
+  // leading "<" opens the min-breakpoint end, a trailing ">" opens the
+  // max-breakpoint end. Translated to floor/ceiling flags via resolveBoundFlags
+  // once the sizes are known (the mapping flips for a shrinking scale).
+  // Default: fully clamped.
+  let openMinBreakpointEnd = false;
+  let openMaxBreakpointEnd = false;
   let body = value;
   if (body.startsWith("<")) {
-    clampMin = false;
+    openMinBreakpointEnd = true;
     body = body.slice(1);
   }
   if (body.endsWith(">")) {
-    clampMax = false;
+    openMaxBreakpointEnd = true;
     body = body.slice(0, -1);
   }
 
@@ -236,6 +267,13 @@ export function parseArbitraryValue(
     const [lowAnchor, highAnchor] =
       first.breakpoint <= second.breakpoint ? [first, second] : [second, first];
 
+    const { clampMin, clampMax } = resolveBoundFlags(
+      openMinBreakpointEnd,
+      openMaxBreakpointEnd,
+      lowAnchor.size,
+      highAnchor.size,
+    );
+
     try {
       return fluidClamp({
         minSize: lowAnchor.size,
@@ -245,6 +283,7 @@ export function parseArbitraryValue(
         fluidUnit: pickUnit(first.named || second.named),
         clampMin,
         clampMax,
+        ...lengthOptions,
       });
     } catch {
       return null;
@@ -257,6 +296,13 @@ export function parseArbitraryValue(
   const [minSize, maxSize] = parts.map(parsePixels);
   if (isNaN(minSize) || isNaN(maxSize)) return null;
 
+  const { clampMin, clampMax } = resolveBoundFlags(
+    openMinBreakpointEnd,
+    openMaxBreakpointEnd,
+    minSize,
+    maxSize,
+  );
+
   try {
     return fluidClamp({
       minSize,
@@ -266,6 +312,7 @@ export function parseArbitraryValue(
       fluidUnit: pickUnit(false),
       clampMin,
       clampMax,
+      ...lengthOptions,
     });
   } catch {
     return null;

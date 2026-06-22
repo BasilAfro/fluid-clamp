@@ -12,7 +12,7 @@
  */
 
 import plugin from "tailwindcss/plugin";
-import { fluidClamp, FluidUnit } from "./fluid";
+import { fluidClamp, FluidUnit, LengthUnit } from "./fluid";
 import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults";
 import {
   BreakpointConfig,
@@ -47,8 +47,8 @@ export interface FluidPluginConfig {
    * - "cqh" → needs container-type: size + explicit height on parent
    *
    * This is only the fallback. A unit can be chosen per-class with a leading
-   * unit token (e.g. `text-fluid-[cqw_15_32]`), and using a named breakpoint
-   * (e.g. `text-fluid-[15@sm_32@lg]`) automatically selects `vw`.
+   * unit token (e.g. `text-fluid-[cqw,15,32]`), and using a named breakpoint
+   * (e.g. `text-fluid-[15@sm,32@lg]`) automatically selects `vw`.
    * Use `textUnit`/`spaceUnit` only to override one of them.
    * @default "vw"
    */
@@ -84,8 +84,25 @@ export interface FluidPluginConfig {
   spaceUnit?: FluidUnit;
 
   /**
+   * Unit for the generated min, max, and intercept length values across every
+   * fluid utility (static scales and arbitrary values alike). The fluid unit
+   * (vw/cqw/cqh) is separate — this only controls the non-fluid lengths.
+   * rem respects user browser font preferences — prefer it over px.
+   * @default "rem"
+   */
+  lengthUnit?: LengthUnit;
+
+  /**
+   * Root font size in px, used to convert px sizes to rem. Set this to match
+   * your project's root font size when it isn't the browser default. Only
+   * affects `rem` output.
+   * @default 16
+   */
+  rootFontSize?: number;
+
+  /**
    * Named breakpoints usable as the breakpoint in arbitrary-value anchors,
-   * e.g. `text-fluid-[15@sm_32@lg]` (size 15→32px across the sm→lg range).
+   * e.g. `text-fluid-[15@sm,32@lg]` (size 15→32px across the sm→lg range).
    *
    * These are merged on top of — and override — Tailwind's theme `screens`,
    * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus
@@ -106,15 +123,19 @@ interface ResolvedConfig {
   spaceBreakpointRange: BreakpointConfig;
   textUnit: FluidUnit;
   spaceUnit: FluidUnit;
+  lengthUnit: LengthUnit;
+  rootFontSize: number;
 }
 
 const PLUGIN_DEFAULTS: ResolvedConfig = {
   textBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
   spaceBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
   // vw matches the viewport-based default breakpoints (and the named Tailwind
-  // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw_15_32].
+  // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw,15,32].
   textUnit: "vw",
   spaceUnit: "vw",
+  lengthUnit: "rem",
+  rootFontSize: 16,
 };
 
 // ─── Spacing utilities ────────────────────────────────────────────────────────
@@ -160,6 +181,14 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
       PLUGIN_DEFAULTS.spaceBreakpointRange,
     textUnit: config.textUnit ?? config.unit ?? PLUGIN_DEFAULTS.textUnit,
     spaceUnit: config.spaceUnit ?? config.unit ?? PLUGIN_DEFAULTS.spaceUnit,
+    lengthUnit: config.lengthUnit ?? PLUGIN_DEFAULTS.lengthUnit,
+    rootFontSize: config.rootFontSize ?? PLUGIN_DEFAULTS.rootFontSize,
+  };
+
+  // Length options forwarded to every fluidClamp call (static and arbitrary).
+  const lengthOptions = {
+    lengthUnit: resolved.lengthUnit,
+    rootFontSize: resolved.rootFontSize,
   };
 
   return plugin(function ({ addUtilities, matchUtilities, theme }) {
@@ -183,9 +212,21 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
 
     // Bound parsers so arbitrary-value callbacks stay terse.
     const textClamp = (value: string) =>
-      parseArbitraryValue(value, resolved.textUnit, textBreakpointRange, breakpointMap);
+      parseArbitraryValue(
+        value,
+        resolved.textUnit,
+        textBreakpointRange,
+        breakpointMap,
+        lengthOptions,
+      );
     const spaceClamp = (value: string) =>
-      parseArbitraryValue(value, resolved.spaceUnit, spaceBreakpointRange, breakpointMap);
+      parseArbitraryValue(
+        value,
+        resolved.spaceUnit,
+        spaceBreakpointRange,
+        breakpointMap,
+        lengthOptions,
+      );
 
     // ── Static type scale ────────────────────────────────────────────────────
     // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
@@ -199,6 +240,7 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
             maxSize,
             fluidUnit: resolved.textUnit,
             ...textBreakpointRange,
+            ...lengthOptions,
           }),
         },
       ]),
@@ -217,6 +259,7 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
         maxSize,
         fluidUnit: resolved.spaceUnit,
         ...spaceBreakpointRange,
+        ...lengthOptions,
       });
 
       for (const [prefix, toDeclarations] of Object.entries(SPACE_PROPS)) {

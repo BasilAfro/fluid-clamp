@@ -61,6 +61,8 @@ setup**. You only need `container-type` if you opt into container units
 | `breakpointRange`      | `{ minBreakpoint, maxBreakpoint }`     | `{ 320, 1280 }`        | Breakpoint range for **all** fluid utilities                 |
 | `unit`                 | `"vw" \| "cqw" \| "cqh"`               | `"vw"`                 | Default fluid unit for **all** utilities (overridable per-class) |
 | `breakpoints`          | `Record<string, number>`               | `{}`                   | Extra/override named breakpoints for arbitrary values (px)   |
+| `lengthUnit`           | `"rem" \| "px"`                        | `"rem"`                | Unit for the generated min/max/intercept lengths (not the fluid unit) |
+| `rootFontSize`         | `number`                               | `16`                   | Root font size (px) for px→rem conversion; only affects `rem` output |
 | `textBreakpointRange`  | `{ minBreakpoint, maxBreakpoint }`     | `breakpointRange`      | Override the breakpoint range for `text-fluid-*` only        |
 | `spaceBreakpointRange` | `{ minBreakpoint, maxBreakpoint }`     | `breakpointRange`      | Override the breakpoint range for spacing utilities only     |
 | `textUnit`             | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for text only                            |
@@ -184,20 +186,25 @@ for container padding or fixed sibling elements. It's subtracted **directly**
 ### Breaking the bounds
 
 By default the value is clamped at both ends. To let it keep scaling along the
-**same slope** past a breakpoint, open that bound with an edge marker: a leading
-`<` opens the floor (keep shrinking past the min breakpoint), a trailing `>` opens
-the ceiling (keep growing past the max breakpoint). Works on both shorthand and
-anchors, and composes with the unit token and insets.
+**same slope** past a breakpoint, open that bound with an edge marker. The markers
+are **positional** — they open the breakpoint end they sit next to: a leading `<`
+opens the **min-breakpoint** end, a trailing `>` opens the **max-breakpoint** end.
+Works on both shorthand and anchors, and composes with the unit token and insets.
 
 ```tsx
 <p className="text-fluid-[16@320,24@1280]" />;   {/* clamp() — bounded both ends (default) */}
-<p className="text-fluid-[16@320,24@1280>]" />;  {/* max() — grows past the max bp, floor kept */}
-<p className="text-fluid-[<16@320,24@1280]" />;  {/* min() — shrinks past the min bp, ceiling kept */}
+<p className="text-fluid-[16@320,24@1280>]" />;  {/* opens the 1280 end — keeps growing past 24px */}
+<p className="text-fluid-[<16@320,24@1280]" />;  {/* opens the 320 end — keeps shrinking below 16px */}
 <p className="text-fluid-[<16@320,24@1280>]" />; {/* calc() — fully linear, unbounded */}
 ```
 
-The marker maps to the CSS: open ceiling → `max(floor, …)`, open floor →
-`min(ceiling, …)`, both open → a bare `calc(…)`.
+For a **growing** scale (the common case) opening the max-breakpoint end emits
+`max(floor, …)` and opening the min-breakpoint end emits `min(ceiling, …)`.
+Because the markers track the breakpoint end — not a fixed size bound — a
+**shrinking** scale (larger size first) flips which CSS function you get: there
+the smaller size sits at the max breakpoint, so `>` opens the floor (`min(…)`) and
+`<` opens the ceiling (`max(…)`). Either way, the end you mark keeps extrapolating
+and the other end stays clamped; opening both yields a bare `calc(…)`.
 
 ### Fluid unit selection
 

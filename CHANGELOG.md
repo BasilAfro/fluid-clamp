@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- New: `lengthUnit` (`"rem" | "px"`, default `"rem"`) and `rootFontSize` (default
+  `16`) options on `createFluidPlugin()`. They apply to every generated utility —
+  static scales and arbitrary values — so a project with a non-default root font
+  size can get correct `rem` math, or opt into `px` output. `fluidClamp()` already
+  accepted both; this just exposes them at the plugin level.
+- Fixed: the class-syntax bound markers (`<`/`>`) are now **positional** — `<`
+  opens the min-breakpoint end and `>` the max-breakpoint end, regardless of scale
+  direction. Previously they were wired to fixed size bounds (floor/ceiling), so on
+  a **shrinking** scale (larger size first) the marker opened the bound at the
+  *opposite* breakpoint from where it was written. Growing scales are unaffected.
 - **Breaking:** redesigned the arbitrary-value syntax around `size@breakpoint` anchors.
   - Shorthand `text-fluid-[16,24]` (two sizes, config breakpoints) is unchanged.
   - Explicit breakpoints now use anchors: `text-fluid-[16@320,24@1280]`

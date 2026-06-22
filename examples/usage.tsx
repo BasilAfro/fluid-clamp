@@ -70,9 +70,11 @@ export function StaticScaleExamples() {
 // breakpoint implies vw → otherwise the config default (vw).
 //   text-fluid-[cqw,16,24]   text-fluid-[16@sm,24@lg]   text-fluid-[16,24]
 //
-// Break the bounds to keep scaling past a breakpoint along the same slope:
-//   leading `<` opens the floor, trailing `>` opens the ceiling.
-//   [16@320,24@1280>]   grows past max (max())   [<16@320,24@1280]  shrinks past min (min())
+// Break the bounds to keep scaling past a breakpoint along the same slope.
+// Markers are positional: leading `<` opens the min-breakpoint end, trailing `>`
+// opens the max-breakpoint end (for a growing scale that's the floor and the
+// ceiling respectively; a shrinking scale flips which CSS fn you get).
+//   [16@320,24@1280>]   keeps growing past 24px    [<16@320,24@1280]  keeps shrinking below 16px
 //   [<16@320,24@1280>]  fully linear (calc())
 
 export function ArbitraryValueExamples() {
@@ -105,7 +107,7 @@ export function ArbitraryValueExamples() {
       </div>
 
       {/* Break the bounds — keep scaling past a breakpoint along the same slope.
-          `>` opens the ceiling (keep growing), `<` opens the floor (keep shrinking). */}
+          `>` opens the max-breakpoint end, `<` opens the min-breakpoint end. */}
       <h1 className="text-fluid-[32@320,64@1280>]">grows past 64px on huge screens</h1>
       <p className="text-fluid-[<12@320,16@1280]">shrinks below 12px on tiny screens</p>
       <p className="text-fluid-[<14@320,20@1280>]">fully linear, no clamp</p>

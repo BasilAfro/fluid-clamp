@@ -3,7 +3,7 @@
  * Pure parsing & breakpoint-resolution helpers, separated from the Tailwind
  * plugin glue so they can be unit-tested directly.
  */
-import { FluidUnit } from "./fluid";
+import { FluidUnit, LengthUnit } from "./fluid";
 export interface BreakpointConfig {
     /**
      * Minimum breakpoint — a px number, or a breakpoint name (a Tailwind screen
@@ -33,5 +33,10 @@ export interface ParsedAnchor {
     named: boolean;
 }
 export declare function parseAnchor(token: string, breakpoints: Record<string, number>): ParsedAnchor | null;
-export declare function parseArbitraryValue(value: string, fallbackUnit: FluidUnit, fallbackRange: NumericBreakpointRange, breakpoints?: Record<string, number>): string | null;
+/** Length-output options forwarded verbatim to fluidClamp. */
+export interface LengthOptions {
+    lengthUnit?: LengthUnit;
+    rootFontSize?: number;
+}
+export declare function parseArbitraryValue(value: string, fallbackUnit: FluidUnit, fallbackRange: NumericBreakpointRange, breakpoints?: Record<string, number>, lengthOptions?: LengthOptions): string | null;
 //# sourceMappingURL=parse.d.ts.map
