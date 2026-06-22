@@ -160,14 +160,20 @@ export function parseAnchor(
   if (atIndex < 0) return null;
 
   const size = parsePixels(token.slice(0, atIndex));
-  let breakpointToken = token.slice(atIndex + 1);
+  const afterAt = token.slice(atIndex + 1);
 
-  // Optional inset: `breakpoint-inset` (subtracted directly, no doubling).
+  // A registered breakpoint name is used as-is — names may contain "-"
+  // (e.g. "tablet-portrait"), so we check the whole token before treating a
+  // trailing "-N" as an inset. When it isn't a name we split on the LAST dash,
+  // which lets even a hyphenated name carry an inset (e.g. "tablet-portrait-16").
+  let breakpointToken = afterAt;
   let inset = 0;
-  const dashIndex = breakpointToken.indexOf("-");
-  if (dashIndex >= 0) {
-    inset = parsePixels(breakpointToken.slice(dashIndex + 1));
-    breakpointToken = breakpointToken.slice(0, dashIndex);
+  if (!Object.prototype.hasOwnProperty.call(breakpoints, afterAt)) {
+    const dashIndex = afterAt.lastIndexOf("-");
+    if (dashIndex >= 0) {
+      inset = parsePixels(afterAt.slice(dashIndex + 1));
+      breakpointToken = afterAt.slice(0, dashIndex);
+    }
   }
 
   const named = Object.prototype.hasOwnProperty.call(breakpoints, breakpointToken);
