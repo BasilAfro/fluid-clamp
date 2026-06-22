@@ -12,151 +12,222 @@
  */
 
 import plugin from "tailwindcss/plugin";
-import { fluidClamp, FluidUnit, isFluidUnit } from "./fluid";
+import { fluidClamp, FluidUnit, LengthUnit } from "./fluid";
+import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults";
 import {
-  DEFAULT_TYPE_SCALE,
-  DEFAULT_SPACE_SCALE,
-  ScaleEntry,
-} from "./defaults";
+  BreakpointConfig,
+  ThemeFunction,
+  parseArbitraryValue,
+  resolveBreakpoints,
+  resolveBreakpointConfig,
+} from "./parse";
 
-// ─── Breakpoint config ────────────────────────────────────────────────────────
-
-export interface BreakpointConfig {
-  /** Minimum breakpoint in px (container or viewport width/height) */
-  minBp: number;
-  /** Maximum breakpoint in px */
-  maxBp: number;
-}
+export type { BreakpointConfig } from "./parse";
 
 // ─── Plugin config ────────────────────────────────────────────────────────────
 
 export interface FluidPluginConfig {
   /**
-   * Breakpoints used for text-fluid-* classes.
-   * Should reflect your page container or viewport range.
-   * @default { minBp: 304, maxBp: 1074 }  (320 - 8px pad, 1098 - 12px pad)
+   * Breakpoint range used for all fluid utilities (text and spacing).
+   * This is the one knob most projects need — text and spacing usually share
+   * the same range. Use `textBreakpointRange`/`spaceBreakpointRange` only to
+   * override one of them.
+   *
+   * `minBreakpoint`/`maxBreakpoint` accept a px number or a breakpoint name (a
+   * Tailwind screen or a name from the `breakpoints` option), e.g.
+   * `{ minBreakpoint: "xs", maxBreakpoint: "lg" }`.
+   * @default { minBreakpoint: 320, maxBreakpoint: 1280 }
    */
-  textBp?: BreakpointConfig;
+  breakpointRange?: BreakpointConfig;
 
   /**
-   * Breakpoints used for spacing fluid-* classes (padding, margin, gap, size).
-   * Should reflect your component/card container range.
-   * @default { minBp: 304, maxBp: 1074 }
-   */
-  spaceBp?: BreakpointConfig;
-
-  /**
-   * Default fluid unit for text-fluid-* classes.
-   * - "cqw" → needs container-type: inline-size or size on parent (recommended)
+   * Default fluid unit for all fluid utilities (text and spacing).
+   * - "vw"  → relative to viewport, no container needed (matches breakpoints)
+   * - "cqw" → needs container-type: inline-size or size on parent
    * - "cqh" → needs container-type: size + explicit height on parent
-   * - "vw"  → relative to viewport, no container needed
-   * @default "cqw"
+   *
+   * This is only the fallback. A unit can be chosen per-class with a leading
+   * unit token (e.g. `text-fluid-[cqw,15,32]`), and using a named breakpoint
+   * (e.g. `text-fluid-[15@sm,32@lg]`) automatically selects `vw`.
+   * Use `textUnit`/`spaceUnit` only to override one of them.
+   * @default "vw"
+   */
+  unit?: FluidUnit;
+
+  /**
+   * Override the breakpoint range for text-fluid-* classes only.
+   * Falls back to `breakpointRange`, then the default. Use this when text should
+   * scale across a different range than spacing (e.g. page/viewport vs component).
+   * @default `breakpointRange`
+   */
+  textBreakpointRange?: BreakpointConfig;
+
+  /**
+   * Override the breakpoint range for spacing fluid-* classes only.
+   * Falls back to `breakpointRange`, then the default.
+   * @default `breakpointRange`
+   */
+  spaceBreakpointRange?: BreakpointConfig;
+
+  /**
+   * Override the fluid unit for text-fluid-* classes only.
+   * Falls back to `unit`, then the default. Same precedence rules as `unit`.
+   * @default `unit`
    */
   textUnit?: FluidUnit;
 
   /**
-   * Default fluid unit for spacing fluid-* classes.
-   * @default "cqw"
+   * Override the fluid unit for spacing fluid-* classes only.
+   * Falls back to `unit`, then the default.
+   * @default `unit`
    */
   spaceUnit?: FluidUnit;
+
+  /**
+   * Unit for the generated min, max, and intercept length values across every
+   * fluid utility (static scales and arbitrary values alike). The fluid unit
+   * (vw/cqw/cqh) is separate — this only controls the non-fluid lengths.
+   * rem respects user browser font preferences — prefer it over px.
+   * @default "rem"
+   */
+  lengthUnit?: LengthUnit;
+
+  /**
+   * Root font size in px, used to convert px sizes to rem. Set this to match
+   * your project's root font size when it isn't the browser default. Only
+   * affects `rem` output.
+   * @default 16
+   */
+  rootFontSize?: number;
+
+  /**
+   * Named breakpoints usable as the breakpoint in arbitrary-value anchors,
+   * e.g. `text-fluid-[15@sm,32@lg]` (size 15→32px across the sm→lg range).
+   *
+   * These are merged on top of — and override — Tailwind's theme `screens`,
+   * so every breakpoint you already use in Tailwind (sm, md, lg, xl, 2xl, plus
+   * any custom ones) is available automatically. Use this option to add names
+   * that aren't Tailwind screens (e.g. `xs`) or to override a screen's px value
+   * just for fluid utilities.
+   *
+   * Values are in px.
+   * @default {}
+   */
+  breakpoints?: Record<string, number>;
 }
 
 // ─── Resolved config (after applying defaults) ────────────────────────────────
 
 interface ResolvedConfig {
-  textBp: BreakpointConfig;
-  spaceBp: BreakpointConfig;
+  textBreakpointRange: BreakpointConfig;
+  spaceBreakpointRange: BreakpointConfig;
   textUnit: FluidUnit;
   spaceUnit: FluidUnit;
+  lengthUnit: LengthUnit;
+  rootFontSize: number;
 }
 
 const PLUGIN_DEFAULTS: ResolvedConfig = {
-  textBp: { minBp: 320, maxBp: 1280 },
-  spaceBp: { minBp: 320, maxBp: 1280 },
-  textUnit: "cqw",
-  spaceUnit: "cqw",
+  textBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
+  spaceBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
+  // vw matches the viewport-based default breakpoints (and the named Tailwind
+  // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw,15,32].
+  textUnit: "vw",
+  spaceUnit: "vw",
+  lengthUnit: "rem",
+  rootFontSize: 16,
 };
 
-// ─── Arbitrary value parser ───────────────────────────────────────────────────
-// Parses the value inside w-fluid-[...] or text-fluid-[...]
-//
-// Supported syntaxes (all values in px, px suffix optional):
-//   [minSize_maxSize]
-//   [minSize_maxSize_minBp_maxBp]
-//   [minSize_maxSize_minBp_maxBp_minPad_maxPad]
-//   [minSize_maxSize_minBp_maxBp_minPad_maxPad_minSubtract_maxSubtract]
-//
-// Examples — these are all equivalent:
-//   text-fluid-[14_24]
-//   text-fluid-[14px_24px]
-//   text-fluid-[14_24_304_1074]
-//   text-fluid-[14px_24px_304px_1074px]
-//
-// When minBp/maxBp are omitted, the resolved config breakpoints are used.
+// ─── Spacing utilities ────────────────────────────────────────────────────────
+// Single source of truth for the spacing prefixes and the CSS declarations each
+// one applies a fluid clamp value to. Both the static scale (`p-fluid-4`) and the
+// arbitrary-value matchers (`p-fluid-[…]`) are generated from this map, so the
+// prefix → property mapping lives in exactly one place.
 
-// Strips a trailing "px" suffix and returns the numeric value.
-// Returns NaN if the string is not a valid number (with or without px).
-
-function stripPx(s: string): number {
-  return Number(s.endsWith("px") ? s.slice(0, -2) : s);
-}
-
-function parseArbitraryValue(
-  value: string,
-  fallbackUnit: FluidUnit,
-  fallbackBp: BreakpointConfig,
-): string | null {
-  const parts = value.split(" ");
-
-  let fluidUnit = fallbackUnit;
-
-  if (isFluidUnit(parts[0])) {
-    fluidUnit = parts.shift() as FluidUnit;
-  }
-
-  const numbers = parts.map(stripPx);
-
-  if (numbers.length < 2 || numbers.some(isNaN)) return null;
-
-  const [
-    minSize,
-    maxSize,
-    minBp,
-    maxBp,
-    minPadding,
-    maxPadding,
-    minSubtract,
-    maxSubtract,
-  ] = numbers;
-
-  try {
-    return fluidClamp({
-      minSize,
-      maxSize,
-      minBp: minBp ?? fallbackBp.minBp,
-      maxBp: maxBp ?? fallbackBp.maxBp,
-      fluidUnit,
-      minPadding: minPadding ?? 0,
-      maxPadding: maxPadding ?? 0,
-      minSubtract: minSubtract ?? 0,
-      maxSubtract: maxSubtract ?? 0,
-    });
-  } catch {
-    return null;
-  }
-}
+const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  p: (clampValue) => ({ padding: clampValue }),
+  px: (clampValue) => ({ paddingLeft: clampValue, paddingRight: clampValue }),
+  py: (clampValue) => ({ paddingTop: clampValue, paddingBottom: clampValue }),
+  pt: (clampValue) => ({ paddingTop: clampValue }),
+  pr: (clampValue) => ({ paddingRight: clampValue }),
+  pb: (clampValue) => ({ paddingBottom: clampValue }),
+  pl: (clampValue) => ({ paddingLeft: clampValue }),
+  m: (clampValue) => ({ margin: clampValue }),
+  mx: (clampValue) => ({ marginLeft: clampValue, marginRight: clampValue }),
+  my: (clampValue) => ({ marginTop: clampValue, marginBottom: clampValue }),
+  mt: (clampValue) => ({ marginTop: clampValue }),
+  mr: (clampValue) => ({ marginRight: clampValue }),
+  mb: (clampValue) => ({ marginBottom: clampValue }),
+  ml: (clampValue) => ({ marginLeft: clampValue }),
+  gap: (clampValue) => ({ gap: clampValue }),
+  "gap-x": (clampValue) => ({ columnGap: clampValue }),
+  "gap-y": (clampValue) => ({ rowGap: clampValue }),
+  w: (clampValue) => ({ width: clampValue }),
+  h: (clampValue) => ({ height: clampValue }),
+};
 
 // ─── Plugin factory ───────────────────────────────────────────────────────────
 
 export function createFluidPlugin(config: FluidPluginConfig = {}) {
+  // Precedence: per-target override → general knob → built-in default.
   const resolved: ResolvedConfig = {
-    textBp: config.textBp ?? PLUGIN_DEFAULTS.textBp,
-    spaceBp: config.spaceBp ?? PLUGIN_DEFAULTS.spaceBp,
-    textUnit: config.textUnit ?? PLUGIN_DEFAULTS.textUnit,
-    spaceUnit: config.spaceUnit ?? PLUGIN_DEFAULTS.spaceUnit,
+    textBreakpointRange:
+      config.textBreakpointRange ??
+      config.breakpointRange ??
+      PLUGIN_DEFAULTS.textBreakpointRange,
+    spaceBreakpointRange:
+      config.spaceBreakpointRange ??
+      config.breakpointRange ??
+      PLUGIN_DEFAULTS.spaceBreakpointRange,
+    textUnit: config.textUnit ?? config.unit ?? PLUGIN_DEFAULTS.textUnit,
+    spaceUnit: config.spaceUnit ?? config.unit ?? PLUGIN_DEFAULTS.spaceUnit,
+    lengthUnit: config.lengthUnit ?? PLUGIN_DEFAULTS.lengthUnit,
+    rootFontSize: config.rootFontSize ?? PLUGIN_DEFAULTS.rootFontSize,
   };
 
-  return plugin(function ({ addUtilities, matchUtilities }) {
+  // Length options forwarded to every fluidClamp call (static and arbitrary).
+  const lengthOptions = {
+    lengthUnit: resolved.lengthUnit,
+    rootFontSize: resolved.rootFontSize,
+  };
+
+  return plugin(function ({ addUtilities, matchUtilities, theme }) {
+    // Named breakpoints: Tailwind's theme screens + plugin overrides.
+    const breakpointMap = resolveBreakpoints(
+      theme as ThemeFunction,
+      config.breakpoints,
+    );
+
+    // Resolve config breakpoints (which may use names like "xs"/"lg") to px.
+    const textBreakpointRange = resolveBreakpointConfig(
+      resolved.textBreakpointRange,
+      breakpointMap,
+      "textBreakpointRange",
+    );
+    const spaceBreakpointRange = resolveBreakpointConfig(
+      resolved.spaceBreakpointRange,
+      breakpointMap,
+      "spaceBreakpointRange",
+    );
+
+    // Bound parsers so arbitrary-value callbacks stay terse.
+    const textClamp = (value: string) =>
+      parseArbitraryValue(
+        value,
+        resolved.textUnit,
+        textBreakpointRange,
+        breakpointMap,
+        lengthOptions,
+      );
+    const spaceClamp = (value: string) =>
+      parseArbitraryValue(
+        value,
+        resolved.spaceUnit,
+        spaceBreakpointRange,
+        breakpointMap,
+        lengthOptions,
+      );
+
     // ── Static type scale ────────────────────────────────────────────────────
     // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
 
@@ -168,7 +239,8 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
             minSize,
             maxSize,
             fluidUnit: resolved.textUnit,
-            ...resolved.textBp,
+            ...textBreakpointRange,
+            ...lengthOptions,
           }),
         },
       ]),
@@ -182,217 +254,49 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
     for (const [key, { minSize, maxSize }] of Object.entries(
       DEFAULT_SPACE_SCALE,
     )) {
-      const c = fluidClamp({
+      const clampValue = fluidClamp({
         minSize,
         maxSize,
         fluidUnit: resolved.spaceUnit,
-        ...resolved.spaceBp,
+        ...spaceBreakpointRange,
+        ...lengthOptions,
       });
 
-      spaceUtilities[`.p-fluid-${key}`] = { padding: c };
-      spaceUtilities[`.px-fluid-${key}`] = { paddingLeft: c, paddingRight: c };
-      spaceUtilities[`.py-fluid-${key}`] = { paddingTop: c, paddingBottom: c };
-      spaceUtilities[`.pt-fluid-${key}`] = { paddingTop: c };
-      spaceUtilities[`.pr-fluid-${key}`] = { paddingRight: c };
-      spaceUtilities[`.pb-fluid-${key}`] = { paddingBottom: c };
-      spaceUtilities[`.pl-fluid-${key}`] = { paddingLeft: c };
-
-      spaceUtilities[`.m-fluid-${key}`] = { margin: c };
-      spaceUtilities[`.mx-fluid-${key}`] = { marginLeft: c, marginRight: c };
-      spaceUtilities[`.my-fluid-${key}`] = { marginTop: c, marginBottom: c };
-      spaceUtilities[`.mt-fluid-${key}`] = { marginTop: c };
-      spaceUtilities[`.mr-fluid-${key}`] = { marginRight: c };
-      spaceUtilities[`.mb-fluid-${key}`] = { marginBottom: c };
-      spaceUtilities[`.ml-fluid-${key}`] = { marginLeft: c };
-
-      spaceUtilities[`.gap-fluid-${key}`] = { gap: c };
-      spaceUtilities[`.gap-x-fluid-${key}`] = { columnGap: c };
-      spaceUtilities[`.gap-y-fluid-${key}`] = { rowGap: c };
-
-      spaceUtilities[`.w-fluid-${key}`] = { width: c };
-      spaceUtilities[`.h-fluid-${key}`] = { height: c };
+      for (const [prefix, toDeclarations] of Object.entries(SPACE_PROPS)) {
+        spaceUtilities[`.${prefix}-fluid-${key}`] = toDeclarations(clampValue);
+      }
     }
 
     addUtilities({ ...typeUtilities, ...spaceUtilities });
 
-    // ── Dynamic arbitrary values ─────────────────────────────────────────────
-    // text-fluid-[14_24]
-    // text-fluid-[14_24_304_1074]
-    // text-fluid-[14_24_140_260_8_12]          ← with padding subtraction
-    // text-fluid-[14_24_140_260_8_12_32_40]    ← with padding + sibling subtraction
+    // ── Dynamic arbitrary values (comma-separated; "_" also works) ───────────
+    // text-fluid-[16,24]                ← shorthand: two sizes, config breakpoints
+    // text-fluid-[16@320,24@1280]       ← anchors: size pinned to explicit bp
+    // text-fluid-[16@sm,24@lg]          ← anchors with breakpoint names
+    // text-fluid-[16@320-16,24@1280-24] ← per-anchor inset (effective bp = bp − N)
+    // text-fluid-[cqw,16,24]            ← leading unit token (overrides the default)
+    // text-fluid-[<16@320,24@1280>]     ← break bounds (< opens floor, > opens ceiling)
 
     matchUtilities(
       {
         "text-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.textUnit,
-            resolved.textBp,
-          );
-          return c ? { fontSize: c } : null;
+          const clampValue = textClamp(value);
+          return clampValue ? { fontSize: clampValue } : null;
         },
       },
       { type: "any" },
     );
 
     matchUtilities(
-      {
-        "p-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { padding: c } : null;
-        },
-        "px-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { paddingLeft: c, paddingRight: c } : null;
-        },
-        "py-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { paddingTop: c, paddingBottom: c } : null;
-        },
-        "pt-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { paddingTop: c } : null;
-        },
-        "pr-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { paddingRight: c } : null;
-        },
-        "pb-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { paddingBottom: c } : null;
-        },
-        "pl-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { paddingLeft: c } : null;
-        },
-
-        "m-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { margin: c } : null;
-        },
-        "mx-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { marginLeft: c, marginRight: c } : null;
-        },
-        "my-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { marginTop: c, marginBottom: c } : null;
-        },
-        "mt-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { marginTop: c } : null;
-        },
-        "mr-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { marginRight: c } : null;
-        },
-        "mb-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { marginBottom: c } : null;
-        },
-        "ml-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { marginLeft: c } : null;
-        },
-
-        "gap-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { gap: c } : null;
-        },
-        "gap-x-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { columnGap: c } : null;
-        },
-        "gap-y-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { rowGap: c } : null;
-        },
-
-        "w-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { width: c } : null;
-        },
-        "h-fluid": (value) => {
-          const c = parseArbitraryValue(
-            value,
-            resolved.spaceUnit,
-            resolved.spaceBp,
-          );
-          return c ? { height: c } : null;
-        },
-      },
+      Object.fromEntries(
+        Object.entries(SPACE_PROPS).map(([prefix, toDeclarations]) => [
+          `${prefix}-fluid`,
+          (value: string) => {
+            const clampValue = spaceClamp(value);
+            return clampValue ? toDeclarations(clampValue) : null;
+          },
+        ]),
+      ),
       { type: "any" },
     );
   });

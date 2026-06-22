@@ -4,46 +4,64 @@
  * Core math for generating CSS clamp() functions.
  * Supports cqw, cqh, and vw as fluid units.
  *
- * Formula:
- *   slope     = (maxSize - minSize) / (maxBp - minBp)
- *   intercept = minSize - slope * minBp
- *   clamp(minSize, slope * 100{unit} + intercept{lengthUnit}, maxSize)
+ * Formula (slope may be negative when the size shrinks as the breakpoint grows):
+ *   slope     = (maxSize - minSize) / (maxBreakpoint - minBreakpoint)
+ *   intercept = minSize - slope * minBreakpoint
+ *   clamp(min(minSize, maxSize), slope * 100{unit} + intercept{lengthUnit}, max(minSize, maxSize))
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FLUID_UNITS = void 0;
 exports.isFluidUnit = isFluidUnit;
 exports.fluidClamp = fluidClamp;
 exports.FLUID_UNITS = ["cqw", "cqh", "vw"];
+// Decimal places for the generated slope, intercept, and clamp bounds. 6 keeps
+// the value at the breakpoints accurate to ~0.00001px (4 left a ~0.001px gap at
+// the limits) without bloating the output.
+const DECIMAL_PLACES = 6;
 function isFluidUnit(value) {
     return exports.FLUID_UNITS.includes(value);
 }
 function fluidClamp(options) {
-    const { minSize, maxSize, minBp: rawMinBp, maxBp: rawMaxBp, fluidUnit, lengthUnit = "rem", rootPx = 16, minPadding = 0, maxPadding = 0, minSubtract = 0, maxSubtract = 0, } = options;
-    if (minSize >= maxSize) {
-        throw new Error(`fluidClamp: minSize (${minSize}) must be less than maxSize (${maxSize})`);
+    const { minSize, maxSize, minBreakpoint, maxBreakpoint, fluidUnit, lengthUnit = "rem", rootFontSize = 16, clampMin = true, clampMax = true, } = options;
+    if (minBreakpoint >= maxBreakpoint) {
+        throw new Error(`fluidClamp: minBreakpoint (${minBreakpoint}) must be less than maxBreakpoint (${maxBreakpoint})`);
     }
-    const minBp = rawMinBp - minPadding * 2 - minSubtract;
-    const maxBp = rawMaxBp - maxPadding * 2 - maxSubtract;
-    if (minBp >= maxBp) {
-        throw new Error(`fluidClamp: resolved minBp (${minBp}) must be less than resolved maxBp (${maxBp}). ` +
-            `Check your padding/subtract values.`);
+    const toLengthValue = (pixels) => lengthUnit === "rem" ? pixels / rootFontSize : pixels;
+    const minSizeValue = toLengthValue(minSize);
+    const maxSizeValue = toLengthValue(maxSize);
+    // Equal sizes aren't fluid — there's no slope. Emit the constant value
+    // directly (a clamp would be degenerate) so callers passing data-driven sizes
+    // never have to special-case the "both ends the same" case.
+    if (minSize === maxSize) {
+        return `${parseFloat(minSizeValue.toFixed(DECIMAL_PLACES))}${lengthUnit}`;
     }
-    const convert = (px) => (lengthUnit === "rem" ? px / rootPx : px);
-    const minVal = convert(minSize);
-    const maxVal = convert(maxSize);
-    const minBpVal = convert(minBp);
-    const maxBpVal = convert(maxBp);
-    const slope = (maxVal - minVal) / (maxBpVal - minBpVal);
-    const intercept = minVal - slope * minBpVal;
-    const slopePct = parseFloat((slope * 100).toFixed(4));
-    const interceptVal = parseFloat(intercept.toFixed(4));
-    const minRounded = parseFloat(minVal.toFixed(4));
-    const maxRounded = parseFloat(maxVal.toFixed(4));
-    const interceptStr = interceptVal === 0
+    const minBreakpointValue = toLengthValue(minBreakpoint);
+    const maxBreakpointValue = toLengthValue(maxBreakpoint);
+    // Slope is negative when the size shrinks as the breakpoint grows.
+    const slope = (maxSizeValue - minSizeValue) / (maxBreakpointValue - minBreakpointValue);
+    const intercept = minSizeValue - slope * minBreakpointValue;
+    const slopePercent = parseFloat((slope * 100).toFixed(DECIMAL_PLACES));
+    const interceptValue = parseFloat(intercept.toFixed(DECIMAL_PLACES));
+    // clamp() requires floor ≤ ceiling — the smaller size is the floor regardless
+    // of which breakpoint it sits at, so growing and shrinking both work.
+    const lowerBound = parseFloat(Math.min(minSizeValue, maxSizeValue).toFixed(DECIMAL_PLACES));
+    const upperBound = parseFloat(Math.max(minSizeValue, maxSizeValue).toFixed(DECIMAL_PLACES));
+    const interceptString = interceptValue === 0
         ? ""
-        : interceptVal > 0
-            ? ` + ${interceptVal}${lengthUnit}`
-            : ` - ${Math.abs(interceptVal)}${lengthUnit}`;
-    return `clamp(${minRounded}${lengthUnit}, ${slopePct}${fluidUnit}${interceptStr}, ${maxRounded}${lengthUnit})`;
+        : interceptValue > 0
+            ? ` + ${interceptValue}${lengthUnit}`
+            : ` - ${Math.abs(interceptValue)}${lengthUnit}`;
+    const preferred = `${slopePercent}${fluidUnit}${interceptString}`;
+    const floor = `${lowerBound}${lengthUnit}`;
+    const ceiling = `${upperBound}${lengthUnit}`;
+    // Dropping a bound lets the value keep extrapolating past it along the same
+    // slope. A bare linear value must be wrapped in calc() to be valid CSS.
+    if (clampMin && clampMax)
+        return `clamp(${floor}, ${preferred}, ${ceiling})`;
+    if (clampMin)
+        return `max(${floor}, ${preferred})`;
+    if (clampMax)
+        return `min(${ceiling}, ${preferred})`;
+    return `calc(${preferred})`;
 }
 //# sourceMappingURL=fluid.js.map
