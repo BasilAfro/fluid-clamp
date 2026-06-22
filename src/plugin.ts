@@ -16,10 +16,10 @@ import { fluidClamp, FluidUnit } from "./fluid";
 import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults";
 import {
   BreakpointConfig,
-  ThemeFn,
+  ThemeFunction,
   parseArbitraryValue,
   resolveBreakpoints,
-  resolveBpConfig,
+  resolveBreakpointConfig,
 } from "./parse";
 
 export type { BreakpointConfig } from "./parse";
@@ -28,15 +28,17 @@ export type { BreakpointConfig } from "./parse";
 
 export interface FluidPluginConfig {
   /**
-   * Breakpoints used for all fluid utilities (text and spacing).
+   * Breakpoint range used for all fluid utilities (text and spacing).
    * This is the one knob most projects need — text and spacing usually share
-   * the same range. Use `textBp`/`spaceBp` only to override one of them.
+   * the same range. Use `textBreakpointRange`/`spaceBreakpointRange` only to
+   * override one of them.
    *
-   * `minBp`/`maxBp` accept a px number or a breakpoint name (a Tailwind screen
-   * or a name from the `breakpoints` option), e.g. `{ minBp: "xs", maxBp: "lg" }`.
-   * @default { minBp: 320, maxBp: 1280 }
+   * `minBreakpoint`/`maxBreakpoint` accept a px number or a breakpoint name (a
+   * Tailwind screen or a name from the `breakpoints` option), e.g.
+   * `{ minBreakpoint: "xs", maxBreakpoint: "lg" }`.
+   * @default { minBreakpoint: 320, maxBreakpoint: 1280 }
    */
-  bp?: BreakpointConfig;
+  breakpointRange?: BreakpointConfig;
 
   /**
    * Default fluid unit for all fluid utilities (text and spacing).
@@ -53,19 +55,19 @@ export interface FluidPluginConfig {
   unit?: FluidUnit;
 
   /**
-   * Override breakpoints for text-fluid-* classes only.
-   * Falls back to `bp`, then the default. Use this when text should scale
-   * across a different range than spacing (e.g. page/viewport vs component).
-   * @default `bp`
+   * Override the breakpoint range for text-fluid-* classes only.
+   * Falls back to `breakpointRange`, then the default. Use this when text should
+   * scale across a different range than spacing (e.g. page/viewport vs component).
+   * @default `breakpointRange`
    */
-  textBp?: BreakpointConfig;
+  textBreakpointRange?: BreakpointConfig;
 
   /**
-   * Override breakpoints for spacing fluid-* classes only.
-   * Falls back to `bp`, then the default.
-   * @default `bp`
+   * Override the breakpoint range for spacing fluid-* classes only.
+   * Falls back to `breakpointRange`, then the default.
+   * @default `breakpointRange`
    */
-  spaceBp?: BreakpointConfig;
+  spaceBreakpointRange?: BreakpointConfig;
 
   /**
    * Override the fluid unit for text-fluid-* classes only.
@@ -82,7 +84,7 @@ export interface FluidPluginConfig {
   spaceUnit?: FluidUnit;
 
   /**
-   * Named breakpoints usable as the bp in arbitrary-value anchors,
+   * Named breakpoints usable as the breakpoint in arbitrary-value anchors,
    * e.g. `text-fluid-[15@sm_32@lg]` (size 15→32px across the sm→lg range).
    *
    * These are merged on top of — and override — Tailwind's theme `screens`,
@@ -100,15 +102,15 @@ export interface FluidPluginConfig {
 // ─── Resolved config (after applying defaults) ────────────────────────────────
 
 interface ResolvedConfig {
-  textBp: BreakpointConfig;
-  spaceBp: BreakpointConfig;
+  textBreakpointRange: BreakpointConfig;
+  spaceBreakpointRange: BreakpointConfig;
   textUnit: FluidUnit;
   spaceUnit: FluidUnit;
 }
 
 const PLUGIN_DEFAULTS: ResolvedConfig = {
-  textBp: { minBp: 320, maxBp: 1280 },
-  spaceBp: { minBp: 320, maxBp: 1280 },
+  textBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
+  spaceBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
   // vw matches the viewport-based default breakpoints (and the named Tailwind
   // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw_15_32].
   textUnit: "vw",
@@ -121,26 +123,26 @@ const PLUGIN_DEFAULTS: ResolvedConfig = {
 // arbitrary-value matchers (`p-fluid-[…]`) are generated from this map, so the
 // prefix → property mapping lives in exactly one place.
 
-const SPACE_PROPS: Record<string, (c: string) => Record<string, string>> = {
-  p: (c) => ({ padding: c }),
-  px: (c) => ({ paddingLeft: c, paddingRight: c }),
-  py: (c) => ({ paddingTop: c, paddingBottom: c }),
-  pt: (c) => ({ paddingTop: c }),
-  pr: (c) => ({ paddingRight: c }),
-  pb: (c) => ({ paddingBottom: c }),
-  pl: (c) => ({ paddingLeft: c }),
-  m: (c) => ({ margin: c }),
-  mx: (c) => ({ marginLeft: c, marginRight: c }),
-  my: (c) => ({ marginTop: c, marginBottom: c }),
-  mt: (c) => ({ marginTop: c }),
-  mr: (c) => ({ marginRight: c }),
-  mb: (c) => ({ marginBottom: c }),
-  ml: (c) => ({ marginLeft: c }),
-  gap: (c) => ({ gap: c }),
-  "gap-x": (c) => ({ columnGap: c }),
-  "gap-y": (c) => ({ rowGap: c }),
-  w: (c) => ({ width: c }),
-  h: (c) => ({ height: c }),
+const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  p: (clampValue) => ({ padding: clampValue }),
+  px: (clampValue) => ({ paddingLeft: clampValue, paddingRight: clampValue }),
+  py: (clampValue) => ({ paddingTop: clampValue, paddingBottom: clampValue }),
+  pt: (clampValue) => ({ paddingTop: clampValue }),
+  pr: (clampValue) => ({ paddingRight: clampValue }),
+  pb: (clampValue) => ({ paddingBottom: clampValue }),
+  pl: (clampValue) => ({ paddingLeft: clampValue }),
+  m: (clampValue) => ({ margin: clampValue }),
+  mx: (clampValue) => ({ marginLeft: clampValue, marginRight: clampValue }),
+  my: (clampValue) => ({ marginTop: clampValue, marginBottom: clampValue }),
+  mt: (clampValue) => ({ marginTop: clampValue }),
+  mr: (clampValue) => ({ marginRight: clampValue }),
+  mb: (clampValue) => ({ marginBottom: clampValue }),
+  ml: (clampValue) => ({ marginLeft: clampValue }),
+  gap: (clampValue) => ({ gap: clampValue }),
+  "gap-x": (clampValue) => ({ columnGap: clampValue }),
+  "gap-y": (clampValue) => ({ rowGap: clampValue }),
+  w: (clampValue) => ({ width: clampValue }),
+  h: (clampValue) => ({ height: clampValue }),
 };
 
 // ─── Plugin factory ───────────────────────────────────────────────────────────
@@ -148,25 +150,42 @@ const SPACE_PROPS: Record<string, (c: string) => Record<string, string>> = {
 export function createFluidPlugin(config: FluidPluginConfig = {}) {
   // Precedence: per-target override → general knob → built-in default.
   const resolved: ResolvedConfig = {
-    textBp: config.textBp ?? config.bp ?? PLUGIN_DEFAULTS.textBp,
-    spaceBp: config.spaceBp ?? config.bp ?? PLUGIN_DEFAULTS.spaceBp,
+    textBreakpointRange:
+      config.textBreakpointRange ??
+      config.breakpointRange ??
+      PLUGIN_DEFAULTS.textBreakpointRange,
+    spaceBreakpointRange:
+      config.spaceBreakpointRange ??
+      config.breakpointRange ??
+      PLUGIN_DEFAULTS.spaceBreakpointRange,
     textUnit: config.textUnit ?? config.unit ?? PLUGIN_DEFAULTS.textUnit,
     spaceUnit: config.spaceUnit ?? config.unit ?? PLUGIN_DEFAULTS.spaceUnit,
   };
 
   return plugin(function ({ addUtilities, matchUtilities, theme }) {
     // Named breakpoints: Tailwind's theme screens + plugin overrides.
-    const bpMap = resolveBreakpoints(theme as ThemeFn, config.breakpoints);
+    const breakpointMap = resolveBreakpoints(
+      theme as ThemeFunction,
+      config.breakpoints,
+    );
 
     // Resolve config breakpoints (which may use names like "xs"/"lg") to px.
-    const textBp = resolveBpConfig(resolved.textBp, bpMap, "textBp");
-    const spaceBp = resolveBpConfig(resolved.spaceBp, bpMap, "spaceBp");
+    const textBreakpointRange = resolveBreakpointConfig(
+      resolved.textBreakpointRange,
+      breakpointMap,
+      "textBreakpointRange",
+    );
+    const spaceBreakpointRange = resolveBreakpointConfig(
+      resolved.spaceBreakpointRange,
+      breakpointMap,
+      "spaceBreakpointRange",
+    );
 
     // Bound parsers so arbitrary-value callbacks stay terse.
     const textClamp = (value: string) =>
-      parseArbitraryValue(value, resolved.textUnit, textBp, bpMap);
+      parseArbitraryValue(value, resolved.textUnit, textBreakpointRange, breakpointMap);
     const spaceClamp = (value: string) =>
-      parseArbitraryValue(value, resolved.spaceUnit, spaceBp, bpMap);
+      parseArbitraryValue(value, resolved.spaceUnit, spaceBreakpointRange, breakpointMap);
 
     // ── Static type scale ────────────────────────────────────────────────────
     // Generates: text-fluid-xs, text-fluid-sm, text-fluid-base, etc.
@@ -179,7 +198,7 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
             minSize,
             maxSize,
             fluidUnit: resolved.textUnit,
-            ...textBp,
+            ...textBreakpointRange,
           }),
         },
       ]),
@@ -193,15 +212,15 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
     for (const [key, { minSize, maxSize }] of Object.entries(
       DEFAULT_SPACE_SCALE,
     )) {
-      const c = fluidClamp({
+      const clampValue = fluidClamp({
         minSize,
         maxSize,
         fluidUnit: resolved.spaceUnit,
-        ...spaceBp,
+        ...spaceBreakpointRange,
       });
 
-      for (const [prefix, toDecls] of Object.entries(SPACE_PROPS)) {
-        spaceUtilities[`.${prefix}-fluid-${key}`] = toDecls(c);
+      for (const [prefix, toDeclarations] of Object.entries(SPACE_PROPS)) {
+        spaceUtilities[`.${prefix}-fluid-${key}`] = toDeclarations(clampValue);
       }
     }
 
@@ -217,8 +236,8 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
     matchUtilities(
       {
         "text-fluid": (value) => {
-          const c = textClamp(value);
-          return c ? { fontSize: c } : null;
+          const clampValue = textClamp(value);
+          return clampValue ? { fontSize: clampValue } : null;
         },
       },
       { type: "any" },
@@ -226,11 +245,11 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
 
     matchUtilities(
       Object.fromEntries(
-        Object.entries(SPACE_PROPS).map(([prefix, toDecls]) => [
+        Object.entries(SPACE_PROPS).map(([prefix, toDeclarations]) => [
           `${prefix}-fluid`,
           (value: string) => {
-            const c = spaceClamp(value);
-            return c ? toDecls(c) : null;
+            const clampValue = spaceClamp(value);
+            return clampValue ? toDeclarations(clampValue) : null;
           },
         ]),
       ),

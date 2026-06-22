@@ -26,15 +26,16 @@ import { createFluidPlugin } from "@basilafro/fluid-clamp";
 export default {
   plugins: [
     createFluidPlugin({
-      bp: { minBp: 320, maxBp: 1280 }, // viewport range to scale across
+      breakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 }, // viewport range to scale across
       unit: "vw", // default — see "Fluid unit selection" below
     }),
   ],
 };
 ```
 
-> `bp` and `unit` apply to both text and spacing. Override just one with
-> `textBp`/`spaceBp` or `textUnit`/`spaceUnit` (see Config options).
+> `breakpointRange` and `unit` apply to both text and spacing. Override just one
+> with `textBreakpointRange`/`spaceBreakpointRange` or `textUnit`/`spaceUnit`
+> (see Config options).
 
 ### 2. (Only for `cqw`/`cqh`) set container-type
 
@@ -55,28 +56,28 @@ setup**. You only need `container-type` if you opt into container units
 
 ## Config options
 
-| Option        | Type                            | Default         | Description                                                  |
-| ------------- | ------------------------------- | --------------- | ------------------------------------------------------------ |
-| `bp`          | `{ minBp, maxBp }`              | `{ 320, 1280 }` | Breakpoints for **all** fluid utilities                      |
-| `unit`        | `"vw" \| "cqw" \| "cqh"`        | `"vw"`          | Default fluid unit for **all** utilities (overridable per-class) |
-| `breakpoints` | `Record<string, number>`        | `{}`            | Extra/override named breakpoints for arbitrary values (px)   |
-| `textBp`      | `{ minBp, maxBp }`              | `bp`            | Override breakpoints for `text-fluid-*` only                 |
-| `spaceBp`     | `{ minBp, maxBp }`              | `bp`            | Override breakpoints for spacing utilities only              |
-| `textUnit`    | `"vw" \| "cqw" \| "cqh"`        | `unit`          | Override fluid unit for text only                            |
-| `spaceUnit`   | `"vw" \| "cqw" \| "cqh"`        | `unit`          | Override fluid unit for spacing only                         |
+| Option                 | Type                                   | Default                | Description                                                  |
+| ---------------------- | -------------------------------------- | ---------------------- | ------------------------------------------------------------ |
+| `breakpointRange`      | `{ minBreakpoint, maxBreakpoint }`     | `{ 320, 1280 }`        | Breakpoint range for **all** fluid utilities                 |
+| `unit`                 | `"vw" \| "cqw" \| "cqh"`               | `"vw"`                 | Default fluid unit for **all** utilities (overridable per-class) |
+| `breakpoints`          | `Record<string, number>`               | `{}`                   | Extra/override named breakpoints for arbitrary values (px)   |
+| `textBreakpointRange`  | `{ minBreakpoint, maxBreakpoint }`     | `breakpointRange`      | Override the breakpoint range for `text-fluid-*` only        |
+| `spaceBreakpointRange` | `{ minBreakpoint, maxBreakpoint }`     | `breakpointRange`      | Override the breakpoint range for spacing utilities only     |
+| `textUnit`             | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for text only                            |
+| `spaceUnit`            | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for spacing only                         |
 
-Most projects only need `bp` and `unit`. The four `text*`/`space*` keys are
+Most projects only need `breakpointRange` and `unit`. The four `text*`/`space*` keys are
 escape hatches for the rarer case where text and spacing scale differently
 (e.g. text against the viewport, spacing against a component container).
 
-`minBp`/`maxBp` (in `bp`, `textBp`, `spaceBp`) accept either a px number or a
-**breakpoint name** — a Tailwind `theme.screens` entry or a name from the
-`breakpoints` option:
+`minBreakpoint`/`maxBreakpoint` (in `breakpointRange`, `textBreakpointRange`,
+`spaceBreakpointRange`) accept either a px number or a **breakpoint name** — a
+Tailwind `theme.screens` entry or a name from the `breakpoints` option:
 
 ```ts
 createFluidPlugin({
-  breakpoints: { xs: 480 },          // adds a name not in theme.screens
-  bp: { minBp: "xs", maxBp: "lg" },  // scale across xs(480) → lg(1024)
+  breakpoints: { xs: 480 }, // adds a name not in theme.screens
+  breakpointRange: { minBreakpoint: "xs", maxBreakpoint: "lg" }, // scale across xs(480) → lg(1024)
 });
 ```
 
@@ -125,9 +126,9 @@ Scales between two sizes across the **configured** breakpoints:
 <p className="text-fluid-[13_19]" />; // 13px → 19px
 ```
 
-### Anchors — `size@bp`
+### Anchors — `size@breakpoint`
 
-Pin a size to an explicit breakpoint with `size@bp`. Order doesn't matter.
+Pin a size to an explicit breakpoint with `size@breakpoint`. Order doesn't matter.
 
 ```tsx
 {
@@ -180,7 +181,7 @@ The unit (`vw`, `cqw`, or `cqh`) is chosen automatically, with this precedence:
 
 ```tsx
 <p className="text-fluid-[16_24]" />;          {/* default → vw */}
-<p className="text-fluid-[16@sm_24@lg]" />;    {/* named bp → vw */}
+<p className="text-fluid-[16@sm_24@lg]" />;    {/* named breakpoint → vw */}
 <p className="text-fluid-[cqw_16_24]" />;      {/* inline token → cqw */}
 <p className="text-fluid-[cqw_16@sm_24@lg]" />;{/* token wins over the auto rule */}
 ```
@@ -203,8 +204,8 @@ import { fluidClamp } from "@basilafro/fluid-clamp";
 const fontSize = fluidClamp({
   minSize: 14,
   maxSize: 22,
-  minBp: 304,
-  maxBp: 1074,
+  minBreakpoint: 304,
+  maxBreakpoint: 1074,
   fluidUnit: "cqw",
 });
 // → "clamp(0.875rem, 2.1739cqw + 0.1875rem, 1.375rem)"

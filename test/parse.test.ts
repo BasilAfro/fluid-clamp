@@ -1,53 +1,70 @@
 import { describe, it, expect } from "vitest";
-import { stripPx, parseAnchor, parseArbitraryValue } from "../src/parse";
+import { parsePixels, parseAnchor, parseArbitraryValue } from "../src/parse";
 
-const BP = { sm: 640, md: 768, lg: 1024, xl: 1280, "2xl": 1536, xs: 480 };
-const FALLBACK = { minBp: 320, maxBp: 1280 };
+const BREAKPOINTS = { sm: 640, md: 768, lg: 1024, xl: 1280, "2xl": 1536, xs: 480 };
+const FALLBACK_RANGE = { minBreakpoint: 320, maxBreakpoint: 1280 };
 
 // parseArbitraryValue receives the value with underscores already turned into
 // spaces by Tailwind, so tests pass space-separated tokens.
-const parse = (v: string) => parseArbitraryValue(v, "vw", FALLBACK, BP);
+const parse = (value: string) =>
+  parseArbitraryValue(value, "vw", FALLBACK_RANGE, BREAKPOINTS);
 
-describe("stripPx", () => {
+describe("parsePixels", () => {
   it("parses numbers with or without a px suffix", () => {
-    expect(stripPx("16")).toBe(16);
-    expect(stripPx("16px")).toBe(16);
-    expect(stripPx("12.5")).toBe(12.5);
+    expect(parsePixels("16")).toBe(16);
+    expect(parsePixels("16px")).toBe(16);
+    expect(parsePixels("12.5")).toBe(12.5);
   });
   it("returns NaN for non-numbers", () => {
-    expect(Number.isNaN(stripPx("abc"))).toBe(true);
+    expect(Number.isNaN(parsePixels("abc"))).toBe(true);
   });
   it("returns NaN for an empty string (not 0)", () => {
-    expect(Number.isNaN(stripPx(""))).toBe(true);
-    expect(Number.isNaN(stripPx("px"))).toBe(true);
+    expect(Number.isNaN(parsePixels(""))).toBe(true);
+    expect(Number.isNaN(parsePixels("px"))).toBe(true);
   });
 });
 
 describe("parseAnchor", () => {
-  it("parses size@bp", () => {
-    expect(parseAnchor("16@320", BP)).toEqual({ size: 16, bp: 320, named: false });
+  it("parses size@breakpoint", () => {
+    expect(parseAnchor("16@320", BREAKPOINTS)).toEqual({
+      size: 16,
+      breakpoint: 320,
+      named: false,
+    });
   });
   it("resolves a named breakpoint and flags it", () => {
-    expect(parseAnchor("16@sm", BP)).toEqual({ size: 16, bp: 640, named: true });
+    expect(parseAnchor("16@sm", BREAKPOINTS)).toEqual({
+      size: 16,
+      breakpoint: 640,
+      named: true,
+    });
   });
   it("applies an inset directly (no doubling)", () => {
-    expect(parseAnchor("16@320-16", BP)).toEqual({ size: 16, bp: 304, named: false });
+    expect(parseAnchor("16@320-16", BREAKPOINTS)).toEqual({
+      size: 16,
+      breakpoint: 304,
+      named: false,
+    });
   });
   it("applies an inset to a named breakpoint", () => {
-    expect(parseAnchor("16@sm-40", BP)).toEqual({ size: 16, bp: 600, named: true });
+    expect(parseAnchor("16@sm-40", BREAKPOINTS)).toEqual({
+      size: 16,
+      breakpoint: 600,
+      named: true,
+    });
   });
   it("returns null without an @", () => {
-    expect(parseAnchor("16", BP)).toBeNull();
+    expect(parseAnchor("16", BREAKPOINTS)).toBeNull();
   });
   it("returns null for an unknown breakpoint name", () => {
-    expect(parseAnchor("16@bogus", BP)).toBeNull();
+    expect(parseAnchor("16@bogus", BREAKPOINTS)).toBeNull();
   });
   it("returns null for a non-numeric size", () => {
-    expect(parseAnchor("abc@320", BP)).toBeNull();
+    expect(parseAnchor("abc@320", BREAKPOINTS)).toBeNull();
   });
   it("returns null when the breakpoint is empty (e.g. a negative inset wipes it)", () => {
-    expect(parseAnchor("16@-320", BP)).toBeNull();
-    expect(parseAnchor("16@", BP)).toBeNull();
+    expect(parseAnchor("16@-320", BREAKPOINTS)).toBeNull();
+    expect(parseAnchor("16@", BREAKPOINTS)).toBeNull();
   });
 });
 

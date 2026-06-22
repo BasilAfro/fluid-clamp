@@ -4,8 +4,8 @@
  * Supports cqw, cqh, and vw as fluid units.
  *
  * Formula:
- *   slope     = (maxSize - minSize) / (maxBp - minBp)
- *   intercept = minSize - slope * minBp
+ *   slope     = (maxSize - minSize) / (maxBreakpoint - minBreakpoint)
+ *   intercept = minSize - slope * minBreakpoint
  *   clamp(minSize, slope * 100{unit} + intercept{lengthUnit}, maxSize)
  */
 export declare const FLUID_UNITS: readonly ["cqw", "cqh", "vw"];
@@ -21,12 +21,12 @@ export interface FluidClampOptions {
      * Minimum breakpoint in px.
      * For cqw → container width. For cqh → container height. For vw → viewport width.
      */
-    minBp: number;
+    minBreakpoint: number;
     /**
      * Maximum breakpoint in px.
      * For cqw → container width. For cqh → container height. For vw → viewport width.
      */
-    maxBp: number;
+    maxBreakpoint: number;
     /**
      * The fluid unit for the slope.
      * - cqw → needs container-type: inline-size or size on parent
@@ -41,10 +41,10 @@ export interface FluidClampOptions {
      */
     lengthUnit?: LengthUnit;
     /**
-     * Root font size in px for rem conversion.
+     * Root font size in px, used to convert px values to rem.
      * @default 16
      */
-    rootPx?: number;
+    rootFontSize?: number;
 }
 export declare function fluidClamp(options: FluidClampOptions): string;
 //# sourceMappingURL=fluid.d.ts.map

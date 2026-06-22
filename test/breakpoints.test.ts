@@ -1,11 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { parseScreen, resolveBreakpoints, resolveBpConfig } from "../src/parse";
+import {
+  parseScreen,
+  resolveBreakpoints,
+  resolveBreakpointConfig,
+} from "../src/parse";
 
 describe("parseScreen", () => {
   it("parses px strings", () => {
     expect(parseScreen("640px")).toBe(640);
   });
-  it("parses rem/em as ×rootPx", () => {
+  it("parses rem/em as ×rootFontSize", () => {
     expect(parseScreen("40rem")).toBe(640);
     expect(parseScreen("40em")).toBe(640);
     expect(parseScreen("40rem", 10)).toBe(400);
@@ -47,26 +51,36 @@ describe("resolveBreakpoints", () => {
   });
 });
 
-describe("resolveBpConfig", () => {
-  const map = { xs: 480, lg: 1024 };
+describe("resolveBreakpointConfig", () => {
+  const breakpointMap = { xs: 480, lg: 1024 };
 
   it("resolves names to px", () => {
-    expect(resolveBpConfig({ minBp: "xs", maxBp: "lg" }, map, "bp")).toEqual({
-      minBp: 480,
-      maxBp: 1024,
-    });
+    expect(
+      resolveBreakpointConfig(
+        { minBreakpoint: "xs", maxBreakpoint: "lg" },
+        breakpointMap,
+        "breakpointRange",
+      ),
+    ).toEqual({ minBreakpoint: 480, maxBreakpoint: 1024 });
   });
 
   it("passes numbers through and mixes with names", () => {
-    expect(resolveBpConfig({ minBp: 320, maxBp: "lg" }, map, "bp")).toEqual({
-      minBp: 320,
-      maxBp: 1024,
-    });
+    expect(
+      resolveBreakpointConfig(
+        { minBreakpoint: 320, maxBreakpoint: "lg" },
+        breakpointMap,
+        "breakpointRange",
+      ),
+    ).toEqual({ minBreakpoint: 320, maxBreakpoint: 1024 });
   });
 
   it("throws a clear error on an unknown name", () => {
-    expect(() => resolveBpConfig({ minBp: "nope", maxBp: "lg" }, map, "textBp")).toThrow(
-      /unknown breakpoint name "nope" in textBp\.minBp/,
-    );
+    expect(() =>
+      resolveBreakpointConfig(
+        { minBreakpoint: "nope", maxBreakpoint: "lg" },
+        breakpointMap,
+        "textBreakpointRange",
+      ),
+    ).toThrow(/unknown breakpoint name "nope" in textBreakpointRange\.minBreakpoint/);
   });
 });

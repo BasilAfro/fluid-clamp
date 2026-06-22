@@ -4,8 +4,8 @@
  * Supports cqw, cqh, and vw as fluid units.
  *
  * Formula:
- *   slope     = (maxSize - minSize) / (maxBp - minBp)
- *   intercept = minSize - slope * minBp
+ *   slope     = (maxSize - minSize) / (maxBreakpoint - minBreakpoint)
+ *   intercept = minSize - slope * minBreakpoint
  *   clamp(minSize, slope * 100{unit} + intercept{lengthUnit}, maxSize)
  */
 
@@ -27,12 +27,12 @@ export interface FluidClampOptions {
    * Minimum breakpoint in px.
    * For cqw → container width. For cqh → container height. For vw → viewport width.
    */
-  minBp: number;
+  minBreakpoint: number;
   /**
    * Maximum breakpoint in px.
    * For cqw → container width. For cqh → container height. For vw → viewport width.
    */
-  maxBp: number;
+  maxBreakpoint: number;
   /**
    * The fluid unit for the slope.
    * - cqw → needs container-type: inline-size or size on parent
@@ -47,21 +47,21 @@ export interface FluidClampOptions {
    */
   lengthUnit?: LengthUnit;
   /**
-   * Root font size in px for rem conversion.
+   * Root font size in px, used to convert px values to rem.
    * @default 16
    */
-  rootPx?: number;
+  rootFontSize?: number;
 }
 
 export function fluidClamp(options: FluidClampOptions): string {
   const {
     minSize,
     maxSize,
-    minBp,
-    maxBp,
+    minBreakpoint,
+    maxBreakpoint,
     fluidUnit,
     lengthUnit = "rem",
-    rootPx = 16,
+    rootFontSize = 16,
   } = options;
 
   if (minSize >= maxSize) {
@@ -70,33 +70,35 @@ export function fluidClamp(options: FluidClampOptions): string {
     );
   }
 
-  if (minBp >= maxBp) {
+  if (minBreakpoint >= maxBreakpoint) {
     throw new Error(
-      `fluidClamp: minBp (${minBp}) must be less than maxBp (${maxBp})`,
+      `fluidClamp: minBreakpoint (${minBreakpoint}) must be less than maxBreakpoint (${maxBreakpoint})`,
     );
   }
 
-  const convert = (px: number) => (lengthUnit === "rem" ? px / rootPx : px);
+  const toLengthValue = (pixels: number) =>
+    lengthUnit === "rem" ? pixels / rootFontSize : pixels;
 
-  const minVal = convert(minSize);
-  const maxVal = convert(maxSize);
-  const minBpVal = convert(minBp);
-  const maxBpVal = convert(maxBp);
+  const minSizeValue = toLengthValue(minSize);
+  const maxSizeValue = toLengthValue(maxSize);
+  const minBreakpointValue = toLengthValue(minBreakpoint);
+  const maxBreakpointValue = toLengthValue(maxBreakpoint);
 
-  const slope = (maxVal - minVal) / (maxBpVal - minBpVal);
-  const intercept = minVal - slope * minBpVal;
+  const slope =
+    (maxSizeValue - minSizeValue) / (maxBreakpointValue - minBreakpointValue);
+  const intercept = minSizeValue - slope * minBreakpointValue;
 
-  const slopePct = parseFloat((slope * 100).toFixed(4));
-  const interceptVal = parseFloat(intercept.toFixed(4));
-  const minRounded = parseFloat(minVal.toFixed(4));
-  const maxRounded = parseFloat(maxVal.toFixed(4));
+  const slopePercent = parseFloat((slope * 100).toFixed(4));
+  const interceptValue = parseFloat(intercept.toFixed(4));
+  const minSizeRounded = parseFloat(minSizeValue.toFixed(4));
+  const maxSizeRounded = parseFloat(maxSizeValue.toFixed(4));
 
-  const interceptStr =
-    interceptVal === 0
+  const interceptString =
+    interceptValue === 0
       ? ""
-      : interceptVal > 0
-        ? ` + ${interceptVal}${lengthUnit}`
-        : ` - ${Math.abs(interceptVal)}${lengthUnit}`;
+      : interceptValue > 0
+        ? ` + ${interceptValue}${lengthUnit}`
+        : ` - ${Math.abs(interceptValue)}${lengthUnit}`;
 
-  return `clamp(${minRounded}${lengthUnit}, ${slopePct}${fluidUnit}${interceptStr}, ${maxRounded}${lengthUnit})`;
+  return `clamp(${minSizeRounded}${lengthUnit}, ${slopePercent}${fluidUnit}${interceptString}, ${maxSizeRounded}${lengthUnit})`;
 }

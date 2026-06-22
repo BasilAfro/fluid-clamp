@@ -58,13 +58,13 @@ export function StaticScaleExamples() {
 // Use these for one-off values that don't fit the scale.
 //
 // Two forms (numbers in px, `px` suffix optional):
-//   [minSize_maxSize]            shorthand — config breakpoints
-//   [size@bp_size@bp]            anchors — explicit breakpoints (any order)
+//   [minSize_maxSize]                    shorthand — config breakpoints
+//   [size@breakpoint_size@breakpoint]    anchors — explicit breakpoints (any order)
 //
 // Anchor breakpoints accept names (a Tailwind screen or a `breakpoints` entry),
 // and an optional inset `-N` subtracts N px from that breakpoint directly:
 //   [16@sm_24@lg]                named breakpoints
-//   [16@320-16_24@1280-24]       inset → effective bp 304 / 1256
+//   [16@320-16_24@1280-24]       inset → effective breakpoint 304 / 1256
 //
 // Fluid unit precedence: a leading unit token (vw|cqw|cqh) wins → a named
 // breakpoint implies vw → otherwise the config default (vw).
@@ -109,20 +109,20 @@ export function ArbitraryValueExamples() {
 import { fluidClamp } from "@basilafro/fluid-clamp";
 
 export function InlineEscapeHatch({
-  minPx,
-  maxPx,
+  minPixels,
+  maxPixels,
 }: {
-  minPx: number;
-  maxPx: number;
+  minPixels: number;
+  maxPixels: number;
 }) {
   return (
     <p
       style={{
         fontSize: fluidClamp({
-          minSize: minPx,
-          maxSize: maxPx,
-          minBp: 304,
-          maxBp: 1074,
+          minSize: minPixels,
+          maxSize: maxPixels,
+          minBreakpoint: 304,
+          maxBreakpoint: 1074,
           fluidUnit: "cqw",
         }),
       }}

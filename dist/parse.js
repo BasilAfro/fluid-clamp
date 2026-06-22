@@ -7,66 +7,72 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseScreen = parseScreen;
 exports.resolveBreakpoints = resolveBreakpoints;
-exports.resolveBpConfig = resolveBpConfig;
-exports.stripPx = stripPx;
+exports.resolveBreakpointConfig = resolveBreakpointConfig;
+exports.parsePixels = parsePixels;
 exports.parseAnchor = parseAnchor;
 exports.parseArbitraryValue = parseArbitraryValue;
 const fluid_1 = require("./fluid");
 // Parses a single theme `screens` value into px.
-// Handles "640px", "40rem"/"40em" (× rootPx), bare numbers, and the
+// Handles "640px", "40rem"/"40em" (× rootFontSize), bare numbers, and the
 // object form ({ min, max }) by preferring `min`. Returns NaN if unparseable.
-function parseScreen(value, rootPx = 16) {
+function parseScreen(value, rootFontSize = 16) {
     if (typeof value === "number")
         return value;
     if (typeof value === "string") {
         const match = value.trim().match(/^(-?[\d.]+)(px|rem|em)?$/);
         if (!match)
             return NaN;
-        const n = Number(match[1]);
-        if (isNaN(n))
+        const numericValue = Number(match[1]);
+        if (isNaN(numericValue))
             return NaN;
-        return match[2] === "rem" || match[2] === "em" ? n * rootPx : n;
+        return match[2] === "rem" || match[2] === "em"
+            ? numericValue * rootFontSize
+            : numericValue;
     }
     if (value && typeof value === "object") {
-        const obj = value;
-        if ("min" in obj)
-            return parseScreen(obj.min, rootPx);
-        if ("max" in obj)
-            return parseScreen(obj.max, rootPx);
+        const screenObject = value;
+        if ("min" in screenObject)
+            return parseScreen(screenObject.min, rootFontSize);
+        if ("max" in screenObject)
+            return parseScreen(screenObject.max, rootFontSize);
     }
     return NaN;
 }
 function resolveBreakpoints(theme, overrides = {}) {
-    const map = {};
+    const breakpointMap = {};
     const screens = theme("screens");
     if (screens && typeof screens === "object") {
         for (const [name, value] of Object.entries(screens)) {
-            const px = parseScreen(value);
-            if (!isNaN(px))
-                map[name] = px;
+            const pixels = parseScreen(value);
+            if (!isNaN(pixels))
+                breakpointMap[name] = pixels;
         }
     }
     // Plugin-level overrides win over theme screens.
-    for (const [name, px] of Object.entries(overrides)) {
-        if (typeof px === "number" && !isNaN(px))
-            map[name] = px;
+    for (const [name, pixels] of Object.entries(overrides)) {
+        if (typeof pixels === "number" && !isNaN(pixels))
+            breakpointMap[name] = pixels;
     }
-    return map;
+    return breakpointMap;
 }
 // Resolves a config breakpoint range to numbers, turning any breakpoint names
 // (e.g. "xs", "lg") into px via the resolved breakpoint map. Throws a clear
 // error on an unknown name — config mistakes should be loud, not silent.
-function resolveBpConfig(bp, bpMap, label) {
-    const one = (v, which) => {
-        if (typeof v === "number")
-            return v;
-        if (Object.prototype.hasOwnProperty.call(bpMap, v))
-            return bpMap[v];
-        throw new Error(`createFluidPlugin: unknown breakpoint name "${v}" in ${label}.${which}. ` +
+function resolveBreakpointConfig(range, breakpointMap, label) {
+    const resolveEndpoint = (value, field) => {
+        if (typeof value === "number")
+            return value;
+        if (Object.prototype.hasOwnProperty.call(breakpointMap, value)) {
+            return breakpointMap[value];
+        }
+        throw new Error(`createFluidPlugin: unknown breakpoint name "${value}" in ${label}.${field}. ` +
             `Add it to the plugin's \`breakpoints\` option or your tailwind ` +
             `theme.screens, or use a px number.`);
     };
-    return { minBp: one(bp.minBp, "minBp"), maxBp: one(bp.maxBp, "maxBp") };
+    return {
+        minBreakpoint: resolveEndpoint(range.minBreakpoint, "minBreakpoint"),
+        maxBreakpoint: resolveEndpoint(range.maxBreakpoint, "maxBreakpoint"),
+    };
 }
 // ─── Arbitrary value parser ───────────────────────────────────────────────────
 // Parses the value inside w-fluid-[...] or text-fluid-[...]
@@ -76,7 +82,7 @@ function resolveBpConfig(bp, bpMap, label) {
 //   1. Shorthand — two sizes, scaled across the configured breakpoints:
 //        text-fluid-[16_24]
 //
-//   2. Anchors — a size pinned to an explicit breakpoint with `size@bp`:
+//   2. Anchors — a size pinned to an explicit breakpoint with `size@breakpoint`:
 //        text-fluid-[16@320_24@1280]      explicit breakpoints
 //        text-fluid-[16@sm_24@lg]         breakpoint names (theme.screens + config)
 //        text-fluid-[16@320-16_24@1280-24] per-anchor inset (effective bp = bp − 16 / − 24)
@@ -93,32 +99,33 @@ function resolveBpConfig(bp, bpMap, label) {
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
 // An empty numeric part is NaN, not 0 (Number("") is 0) — so a malformed
-// token like "16@-320" (empty bp after the inset split) is rejected.
-function stripPx(s) {
-    const n = s.endsWith("px") ? s.slice(0, -2) : s;
-    return n === "" ? NaN : Number(n);
+// token like "16@-320" (empty breakpoint after the inset split) is rejected.
+function parsePixels(token) {
+    const numericPart = token.endsWith("px") ? token.slice(0, -2) : token;
+    return numericPart === "" ? NaN : Number(numericPart);
 }
-// Parses one `size@bp` or `size@bp-inset` anchor token. Returns null if malformed.
+// Parses one `size@breakpoint` or `size@breakpoint-inset` anchor token.
+// Returns null if malformed.
 function parseAnchor(token, breakpoints) {
-    const at = token.indexOf("@");
-    if (at < 0)
+    const atIndex = token.indexOf("@");
+    if (atIndex < 0)
         return null;
-    const size = stripPx(token.slice(0, at));
-    let bpToken = token.slice(at + 1);
-    // Optional inset: `bp-inset` (subtracted directly, no doubling).
+    const size = parsePixels(token.slice(0, atIndex));
+    let breakpointToken = token.slice(atIndex + 1);
+    // Optional inset: `breakpoint-inset` (subtracted directly, no doubling).
     let inset = 0;
-    const dash = bpToken.indexOf("-");
-    if (dash >= 0) {
-        inset = stripPx(bpToken.slice(dash + 1));
-        bpToken = bpToken.slice(0, dash);
+    const dashIndex = breakpointToken.indexOf("-");
+    if (dashIndex >= 0) {
+        inset = parsePixels(breakpointToken.slice(dashIndex + 1));
+        breakpointToken = breakpointToken.slice(0, dashIndex);
     }
-    const named = Object.prototype.hasOwnProperty.call(breakpoints, bpToken);
-    const bp = named ? breakpoints[bpToken] : stripPx(bpToken);
-    if (isNaN(size) || isNaN(bp) || isNaN(inset))
+    const named = Object.prototype.hasOwnProperty.call(breakpoints, breakpointToken);
+    const breakpoint = named ? breakpoints[breakpointToken] : parsePixels(breakpointToken);
+    if (isNaN(size) || isNaN(breakpoint) || isNaN(inset))
         return null;
-    return { size, bp: bp - inset, named };
+    return { size, breakpoint: breakpoint - inset, named };
 }
-function parseArbitraryValue(value, fallbackUnit, fallbackBp, breakpoints = {}) {
+function parseArbitraryValue(value, fallbackUnit, fallbackRange, breakpoints = {}) {
     const parts = value.split(" ");
     // An explicit unit token (cqw|cqh|vw) may lead the value; it always wins.
     let inlineUnit = null;
@@ -126,24 +133,24 @@ function parseArbitraryValue(value, fallbackUnit, fallbackBp, breakpoints = {}) 
         inlineUnit = parts.shift();
     }
     const pickUnit = (named) => inlineUnit !== null && inlineUnit !== void 0 ? inlineUnit : (named ? "vw" : fallbackUnit);
-    // ── Anchor form: every token carries an explicit `size@bp` ──────────────────
-    if (parts.some((p) => p.includes("@"))) {
-        const anchors = parts.map((p) => parseAnchor(p, breakpoints));
-        if (anchors.some((a) => a === null))
+    // ── Anchor form: every token carries an explicit `size@breakpoint` ──────────
+    if (parts.some((part) => part.includes("@"))) {
+        const anchors = parts.map((part) => parseAnchor(part, breakpoints));
+        if (anchors.some((anchor) => anchor === null))
             return null;
         // 3+ anchors (piecewise) are not implemented yet — reserved for later.
         if (anchors.length !== 2)
             return null;
-        const [a, b] = anchors;
-        // Order by breakpoint so the smaller bp is the min anchor.
-        const [lo, hi] = a.bp <= b.bp ? [a, b] : [b, a];
+        const [first, second] = anchors;
+        // Order by breakpoint so the smaller breakpoint is the min anchor.
+        const [lowAnchor, highAnchor] = first.breakpoint <= second.breakpoint ? [first, second] : [second, first];
         try {
             return (0, fluid_1.fluidClamp)({
-                minSize: lo.size,
-                maxSize: hi.size,
-                minBp: lo.bp,
-                maxBp: hi.bp,
-                fluidUnit: pickUnit(a.named || b.named),
+                minSize: lowAnchor.size,
+                maxSize: highAnchor.size,
+                minBreakpoint: lowAnchor.breakpoint,
+                maxBreakpoint: highAnchor.breakpoint,
+                fluidUnit: pickUnit(first.named || second.named),
             });
         }
         catch {
@@ -153,15 +160,15 @@ function parseArbitraryValue(value, fallbackUnit, fallbackBp, breakpoints = {}) 
     // ── Shorthand form: exactly two sizes, across the configured breakpoints ────
     if (parts.length !== 2)
         return null;
-    const [minSize, maxSize] = parts.map(stripPx);
+    const [minSize, maxSize] = parts.map(parsePixels);
     if (isNaN(minSize) || isNaN(maxSize))
         return null;
     try {
         return (0, fluid_1.fluidClamp)({
             minSize,
             maxSize,
-            minBp: fallbackBp.minBp,
-            maxBp: fallbackBp.maxBp,
+            minBreakpoint: fallbackRange.minBreakpoint,
+            maxBreakpoint: fallbackRange.maxBreakpoint,
             fluidUnit: pickUnit(false),
         });
     }

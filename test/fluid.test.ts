@@ -4,57 +4,75 @@ import { fluidClamp, isFluidUnit } from "../src/fluid";
 describe("fluidClamp", () => {
   it("produces the canonical clamp string (rem)", () => {
     expect(
-      fluidClamp({ minSize: 16, maxSize: 24, minBp: 320, maxBp: 1280, fluidUnit: "vw" }),
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+      }),
     ).toBe("clamp(1rem, 0.8333vw + 0.8333rem, 1.5rem)");
   });
 
   it("honours the fluid unit", () => {
     expect(
-      fluidClamp({ minSize: 16, maxSize: 24, minBp: 320, maxBp: 1280, fluidUnit: "cqw" }),
+      fluidClamp({
+        minSize: 16,
+        maxSize: 24,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "cqw",
+      }),
     ).toBe("clamp(1rem, 0.8333cqw + 0.8333rem, 1.5rem)");
   });
 
   it("emits px when lengthUnit is px", () => {
-    const out = fluidClamp({
+    const output = fluidClamp({
       minSize: 16,
       maxSize: 24,
-      minBp: 320,
-      maxBp: 1280,
+      minBreakpoint: 320,
+      maxBreakpoint: 1280,
       fluidUnit: "vw",
       lengthUnit: "px",
     });
-    expect(out.startsWith("clamp(16px,")).toBe(true);
-    expect(out.endsWith("24px)")).toBe(true);
-    expect(out).toContain("vw");
+    expect(output.startsWith("clamp(16px,")).toBe(true);
+    expect(output.endsWith("24px)")).toBe(true);
+    expect(output).toContain("vw");
   });
 
   it("throws when minSize >= maxSize", () => {
     expect(() =>
-      fluidClamp({ minSize: 24, maxSize: 16, minBp: 320, maxBp: 1280, fluidUnit: "vw" }),
+      fluidClamp({
+        minSize: 24,
+        maxSize: 16,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+      }),
     ).toThrow(/minSize/);
   });
 
-  it("throws when resolved minBp >= maxBp", () => {
+  it("throws when minBreakpoint >= maxBreakpoint", () => {
     expect(() =>
       fluidClamp({
         minSize: 16,
         maxSize: 24,
-        minBp: 1280,
-        maxBp: 320,
+        minBreakpoint: 1280,
+        maxBreakpoint: 320,
         fluidUnit: "vw",
       }),
-    ).toThrow(/minBp/);
+    ).toThrow(/minBreakpoint/);
   });
 
-  it("honours a custom rootPx for rem conversion", () => {
+  it("honours a custom rootFontSize for rem conversion", () => {
     expect(
       fluidClamp({
         minSize: 16,
         maxSize: 24,
-        minBp: 320,
-        maxBp: 1280,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
         fluidUnit: "vw",
-        rootPx: 10,
+        rootFontSize: 10,
       }),
     ).toBe("clamp(1.6rem, 0.8333vw + 1.3333rem, 2.4rem)");
   });

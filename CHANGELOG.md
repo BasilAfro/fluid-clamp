@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Breaking:** redesigned the arbitrary-value syntax around `size@bp` anchors.
+- **Breaking:** redesigned the arbitrary-value syntax around `size@breakpoint` anchors.
   - Shorthand `text-fluid-[16_24]` (two sizes, config breakpoints) is unchanged.
   - Explicit breakpoints now use anchors: `text-fluid-[16@320_24@1280]`
     (replaces the old positional `[16_24_320_1280]`).
@@ -15,19 +15,26 @@
   - (3+ anchors / piecewise ramps are reserved for a future release.)
 - **Breaking:** removed `minPadding`/`maxPadding`/`minSubtract`/`maxSubtract` from
   `fluidClamp()`. The plugin no longer used them after the anchor redesign, and the
-  class-side inset (`size@bp-N`) replaces them. Callers that need a smaller effective
-  range now subtract it from `minBp`/`maxBp` directly (e.g. `minBp: 320 - 8 * 2`).
-- Config breakpoints (`bp`, `textBp`, `spaceBp`) accept **breakpoint names**
-  for `minBp`/`maxBp`, e.g. `bp: { minBp: "xs", maxBp: "lg" }`. Names resolve
+  class-side inset (`size@breakpoint-N`) replaces them. Callers that need a smaller
+  effective range now subtract it from `minBreakpoint`/`maxBreakpoint` directly
+  (e.g. `minBreakpoint: 320 - 8 * 2`).
+- **Breaking:** renamed config and function fields to spell out abbreviations —
+  `bp`/`textBp`/`spaceBp` → `breakpointRange`/`textBreakpointRange`/`spaceBreakpointRange`,
+  `minBp`/`maxBp` → `minBreakpoint`/`maxBreakpoint`, and `fluidClamp()`'s `rootPx` →
+  `rootFontSize`. The `breakpoints` named-map option and `unit`/`textUnit`/`spaceUnit`
+  are unchanged.
+- Config breakpoint ranges (`breakpointRange`, `textBreakpointRange`,
+  `spaceBreakpointRange`) accept **breakpoint names** for `minBreakpoint`/`maxBreakpoint`,
+  e.g. `breakpointRange: { minBreakpoint: "xs", maxBreakpoint: "lg" }`. Names resolve
   from `theme.screens` + the `breakpoints` option; an unknown name throws a
   clear build-time error.
 - New `breakpoints` config option on `createFluidPlugin()` to add names that
   aren't Tailwind screens (e.g. `xs`) or override a screen's px value for fluid
   utilities. Merged on top of `theme.screens`.
-- Added general `unit` and `bp` config options that apply to both text and
-  spacing — the only knobs most projects need. The existing `textUnit`,
-  `spaceUnit`, `textBp`, `spaceBp` keys still work and override the general one
-  for their target (precedence: per-target → general → default).
+- Added general `unit` and `breakpointRange` config options that apply to both
+  text and spacing — the only knobs most projects need. The existing `textUnit`,
+  `spaceUnit`, `textBreakpointRange`, `spaceBreakpointRange` keys still work and
+  override the general one for their target (precedence: per-target → general → default).
 - **Breaking:** the default fluid unit is now `vw` (was `cqw`) for both
   `textUnit` and `spaceUnit`, matching the viewport-based breakpoints. Pass
   `textUnit`/`spaceUnit` to restore `cqw`.

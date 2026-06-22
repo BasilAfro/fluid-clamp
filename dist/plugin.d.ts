@@ -15,15 +15,17 @@ import { BreakpointConfig } from "./parse";
 export type { BreakpointConfig } from "./parse";
 export interface FluidPluginConfig {
     /**
-     * Breakpoints used for all fluid utilities (text and spacing).
+     * Breakpoint range used for all fluid utilities (text and spacing).
      * This is the one knob most projects need — text and spacing usually share
-     * the same range. Use `textBp`/`spaceBp` only to override one of them.
+     * the same range. Use `textBreakpointRange`/`spaceBreakpointRange` only to
+     * override one of them.
      *
-     * `minBp`/`maxBp` accept a px number or a breakpoint name (a Tailwind screen
-     * or a name from the `breakpoints` option), e.g. `{ minBp: "xs", maxBp: "lg" }`.
-     * @default { minBp: 320, maxBp: 1280 }
+     * `minBreakpoint`/`maxBreakpoint` accept a px number or a breakpoint name (a
+     * Tailwind screen or a name from the `breakpoints` option), e.g.
+     * `{ minBreakpoint: "xs", maxBreakpoint: "lg" }`.
+     * @default { minBreakpoint: 320, maxBreakpoint: 1280 }
      */
-    bp?: BreakpointConfig;
+    breakpointRange?: BreakpointConfig;
     /**
      * Default fluid unit for all fluid utilities (text and spacing).
      * - "vw"  → relative to viewport, no container needed (matches breakpoints)
@@ -38,18 +40,18 @@ export interface FluidPluginConfig {
      */
     unit?: FluidUnit;
     /**
-     * Override breakpoints for text-fluid-* classes only.
-     * Falls back to `bp`, then the default. Use this when text should scale
-     * across a different range than spacing (e.g. page/viewport vs component).
-     * @default `bp`
+     * Override the breakpoint range for text-fluid-* classes only.
+     * Falls back to `breakpointRange`, then the default. Use this when text should
+     * scale across a different range than spacing (e.g. page/viewport vs component).
+     * @default `breakpointRange`
      */
-    textBp?: BreakpointConfig;
+    textBreakpointRange?: BreakpointConfig;
     /**
-     * Override breakpoints for spacing fluid-* classes only.
-     * Falls back to `bp`, then the default.
-     * @default `bp`
+     * Override the breakpoint range for spacing fluid-* classes only.
+     * Falls back to `breakpointRange`, then the default.
+     * @default `breakpointRange`
      */
-    spaceBp?: BreakpointConfig;
+    spaceBreakpointRange?: BreakpointConfig;
     /**
      * Override the fluid unit for text-fluid-* classes only.
      * Falls back to `unit`, then the default. Same precedence rules as `unit`.
@@ -63,7 +65,7 @@ export interface FluidPluginConfig {
      */
     spaceUnit?: FluidUnit;
     /**
-     * Named breakpoints usable as the bp in arbitrary-value anchors,
+     * Named breakpoints usable as the breakpoint in arbitrary-value anchors,
      * e.g. `text-fluid-[15@sm_32@lg]` (size 15→32px across the sm→lg range).
      *
      * These are merged on top of — and override — Tailwind's theme `screens`,

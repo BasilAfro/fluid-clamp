@@ -19,13 +19,14 @@ export default {
   },
   plugins: [
     createFluidPlugin({
-      // bp + unit apply to both text and spacing — usually all you need.
-      // (Use textBp/spaceBp or textUnit/spaceUnit only to diverge them.)
+      // breakpointRange + unit apply to both text and spacing — usually all you need.
+      // (Use textBreakpointRange/spaceBreakpointRange or textUnit/spaceUnit only to diverge them.)
 
       // available space after subtracting page container padding.
-      // minBp/maxBp also accept breakpoint names, e.g. { minBp: "xs", maxBp: "lg" }
+      // minBreakpoint/maxBreakpoint also accept breakpoint names, e.g.
+      // { minBreakpoint: "xs", maxBreakpoint: "lg" }
       // (resolved from theme.screens + the `breakpoints` option below).
-      bp: { minBp: 304, maxBp: 1074 },
+      breakpointRange: { minBreakpoint: 304, maxBreakpoint: 1074 },
 
       // The default unit is "vw". This project renders everything inside a
       // page container with container-type, so it overrides the default to cqw.
