@@ -13,6 +13,15 @@
   - The old 4-/6-/8-position positional forms are removed from the class syntax;
     the per-anchor inset replaces them.
   - (3+ anchors / piecewise ramps are reserved for a future release.)
+- Fluid utilities now support **decreasing** sizes — a value that shrinks as the
+  breakpoint grows. Put the larger size first: `text-fluid-[24_16]` or
+  `text-fluid-[24@320_16@1280]`. `fluidClamp()` accepts `minSize > maxSize`
+  (negative slope) and now only rejects equal sizes.
+- Fixed: breakpoint names containing **hyphens** (e.g. `tablet-portrait`) now
+  resolve in anchors. A registered name is matched in full before a trailing
+  `-N` is read as an inset (split on the last dash), so a hyphenated name can
+  still carry an inset (`16@tablet-portrait-16`). Previously such names silently
+  produced no class.
 - **Breaking:** removed `minPadding`/`maxPadding`/`minSubtract`/`maxSubtract` from
   `fluidClamp()`. The plugin no longer used them after the anchor redesign, and the
   class-side inset (`size@breakpoint-N`) replaces them. Callers that need a smaller

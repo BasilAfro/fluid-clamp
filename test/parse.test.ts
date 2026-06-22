@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { parsePixels, parseAnchor, parseArbitraryValue } from "../src/parse";
 
-const BREAKPOINTS = { sm: 640, md: 768, lg: 1024, xl: 1280, "2xl": 1536, xs: 480 };
+const BREAKPOINTS = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  "2xl": 1536,
+  xs: 480,
+  "tablet-portrait": 900,
+};
 const FALLBACK_RANGE = { minBreakpoint: 320, maxBreakpoint: 1280 };
 
 // parseArbitraryValue receives the value with underscores already turned into
@@ -53,6 +61,20 @@ describe("parseAnchor", () => {
       named: true,
     });
   });
+  it("resolves a hyphenated breakpoint name (not treated as an inset)", () => {
+    expect(parseAnchor("16@tablet-portrait", BREAKPOINTS)).toEqual({
+      size: 16,
+      breakpoint: 900,
+      named: true,
+    });
+  });
+  it("applies an inset to a hyphenated name (splits on the last dash)", () => {
+    expect(parseAnchor("16@tablet-portrait-100", BREAKPOINTS)).toEqual({
+      size: 16,
+      breakpoint: 800,
+      named: true,
+    });
+  });
   it("returns null without an @", () => {
     expect(parseAnchor("16", BREAKPOINTS)).toBeNull();
   });
@@ -89,6 +111,15 @@ describe("parseArbitraryValue — valid forms", () => {
     expect(parse("16@320-16 24@1280-24")).toBe(
       "clamp(1rem, 0.8403vw + 0.8403rem, 1.5rem)",
     );
+  });
+
+  it("supports decreasing sizes — shorthand (shrink as the viewport grows)", () => {
+    expect(parse("24 16")).toBe("clamp(1rem, -0.8333vw + 1.6667rem, 1.5rem)");
+  });
+
+  it("supports decreasing sizes — anchors, order-independent", () => {
+    expect(parse("24@320 16@1280")).toBe("clamp(1rem, -0.8333vw + 1.6667rem, 1.5rem)");
+    expect(parse("16@1280 24@320")).toBe(parse("24@320 16@1280"));
   });
 
   it("leading unit token overrides the default", () => {

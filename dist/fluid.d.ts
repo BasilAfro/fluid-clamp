@@ -3,19 +3,19 @@
  * Core math for generating CSS clamp() functions.
  * Supports cqw, cqh, and vw as fluid units.
  *
- * Formula:
+ * Formula (slope may be negative when the size shrinks as the breakpoint grows):
  *   slope     = (maxSize - minSize) / (maxBreakpoint - minBreakpoint)
  *   intercept = minSize - slope * minBreakpoint
- *   clamp(minSize, slope * 100{unit} + intercept{lengthUnit}, maxSize)
+ *   clamp(min(minSize, maxSize), slope * 100{unit} + intercept{lengthUnit}, max(minSize, maxSize))
  */
 export declare const FLUID_UNITS: readonly ["cqw", "cqh", "vw"];
 export type FluidUnit = (typeof FLUID_UNITS)[number];
 export type LengthUnit = "rem" | "px";
 export declare function isFluidUnit(value: string): value is FluidUnit;
 export interface FluidClampOptions {
-    /** Minimum size in px */
+    /** Size in px at `minBreakpoint`. May be larger than `maxSize` to shrink as the breakpoint grows. */
     minSize: number;
-    /** Maximum size in px */
+    /** Size in px at `maxBreakpoint`. May be smaller than `minSize` to shrink as the breakpoint grows. */
     maxSize: number;
     /**
      * Minimum breakpoint in px.

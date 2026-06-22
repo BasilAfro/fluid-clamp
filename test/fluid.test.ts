@@ -40,8 +40,9 @@ describe("fluidClamp", () => {
     expect(output).toContain("vw");
   });
 
-  it("throws when minSize >= maxSize", () => {
-    expect(() =>
+  it("supports decreasing sizes (shrink as the breakpoint grows)", () => {
+    // 24px at 320 → 16px at 1280: negative slope, floor/ceiling still sorted
+    expect(
       fluidClamp({
         minSize: 24,
         maxSize: 16,
@@ -49,7 +50,19 @@ describe("fluidClamp", () => {
         maxBreakpoint: 1280,
         fluidUnit: "vw",
       }),
-    ).toThrow(/minSize/);
+    ).toBe("clamp(1rem, -0.8333vw + 1.6667rem, 1.5rem)");
+  });
+
+  it("throws when minSize === maxSize (no fluid range)", () => {
+    expect(() =>
+      fluidClamp({
+        minSize: 16,
+        maxSize: 16,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+      }),
+    ).toThrow(/must differ/);
   });
 
   it("throws when minBreakpoint >= maxBreakpoint", () => {

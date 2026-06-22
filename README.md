@@ -120,11 +120,16 @@ every utility: `text-fluid-[...]`, `p-fluid-[...]`, `w-fluid-[...]`, etc.
 
 ### Shorthand — two sizes
 
-Scales between two sizes across the **configured** breakpoints:
+Scales between two sizes across the **configured** breakpoints. The first number
+is the size at the min breakpoint, the second at the max:
 
 ```tsx
-<p className="text-fluid-[13_19]" />; // 13px → 19px
+<p className="text-fluid-[13_19]" />; // 13px → 19px (grows)
+<p className="text-fluid-[19_13]" />; // 19px → 13px (shrinks as the viewport grows)
 ```
+
+The two sizes just need to differ — put the larger one first to **shrink** as the
+breakpoint grows. The same holds for anchors below.
 
 ### Anchors — `size@breakpoint`
 
@@ -143,7 +148,9 @@ Pin a size to an explicit breakpoint with `size@breakpoint`. Order doesn't matte
 ```
 
 The breakpoint can be a **name** — a Tailwind `theme.screens` entry (`sm`, `md`,
-`lg`, `xl`, `2xl`, plus custom screens), or a name from the `breakpoints` config:
+`lg`, `xl`, `2xl`, plus custom screens), or a name from the `breakpoints` config.
+Names may contain hyphens (e.g. `tablet-portrait`); a registered name is matched
+in full before any trailing `-N` is read as an inset:
 
 ```tsx
 <p className="text-fluid-[16@sm_24@lg]" />;
