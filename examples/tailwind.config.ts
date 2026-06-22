@@ -35,7 +35,7 @@ export default {
       unit: "cqw",
 
       // extra named breakpoints usable in arbitrary values, e.g.
-      // text-fluid-[15@xs_32@lg] — merged on top of theme.screens
+      // text-fluid-[15@xs,32@lg] — merged on top of theme.screens
       breakpoints: { xs: 480 },
     }),
   ],

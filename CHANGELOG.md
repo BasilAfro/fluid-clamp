@@ -3,27 +3,29 @@
 ## Unreleased
 
 - **Breaking:** redesigned the arbitrary-value syntax around `size@breakpoint` anchors.
-  - Shorthand `text-fluid-[16_24]` (two sizes, config breakpoints) is unchanged.
-  - Explicit breakpoints now use anchors: `text-fluid-[16@320_24@1280]`
+  - Shorthand `text-fluid-[16,24]` (two sizes, config breakpoints) is unchanged.
+  - Explicit breakpoints now use anchors: `text-fluid-[16@320,24@1280]`
     (replaces the old positional `[16_24_320_1280]`).
-  - Breakpoints accept names: `text-fluid-[16@sm_24@lg]`.
-  - Optional per-anchor **inset** `text-fluid-[16@320-16_24@1280-24]` subtracts px
+  - Breakpoints accept names: `text-fluid-[16@sm,24@lg]`.
+  - Optional per-anchor **inset** `text-fluid-[16@320-16,24@1280-24]` subtracts px
     from a breakpoint directly (replaces the old `_minPad_maxPad_minSub_maxSub`
     positional tail; merged into one value, no `×2`).
   - The old 4-/6-/8-position positional forms are removed from the class syntax;
     the per-anchor inset replaces them.
+  - Tokens are now separated by a **comma** (`text-fluid-[16@320,24@1280]`); the
+    underscore separator still works as a fallback.
   - (3+ anchors / piecewise ramps are reserved for a future release.)
 - Fluid utilities now support **decreasing** sizes — a value that shrinks as the
-  breakpoint grows. Put the larger size first: `text-fluid-[24_16]` or
-  `text-fluid-[24@320_16@1280]`. `fluidClamp()` accepts `minSize > maxSize`
+  breakpoint grows. Put the larger size first: `text-fluid-[24,16]` or
+  `text-fluid-[24@320,16@1280]`. `fluidClamp()` accepts `minSize > maxSize`
   (negative slope). Equal sizes are no longer an error: they emit the constant
-  value directly (`text-fluid-[16_16]` → `1rem`), so data-driven sizes never need
+  value directly (`text-fluid-[16,16]` → `1rem`), so data-driven sizes never need
   to special-case the degenerate case. Only `minBreakpoint >= maxBreakpoint` throws.
 - New: **break the clamp bounds** to keep extrapolating along the same slope past
   a breakpoint. In the class syntax, a leading `<` opens the floor and a trailing
-  `>` opens the ceiling: `text-fluid-[16@320_24@1280>]` (grows past max, `max()`),
-  `text-fluid-[<16@320_24@1280]` (shrinks past min, `min()`),
-  `text-fluid-[<16@320_24@1280>]` (fully linear, bare `calc()`). On `fluidClamp()`
+  `>` opens the ceiling: `text-fluid-[16@320,24@1280>]` (grows past max, `max()`),
+  `text-fluid-[<16@320,24@1280]` (shrinks past min, `min()`),
+  `text-fluid-[<16@320,24@1280>]` (fully linear, bare `calc()`). On `fluidClamp()`
   the same is controlled by `clampMin`/`clampMax` (both default `true`). Default
   behavior is unchanged — fully clamped.
 - Fixed: breakpoint names containing **hyphens** (e.g. `tablet-portrait`) now
@@ -60,8 +62,8 @@
   `textUnit` and `spaceUnit`, matching the viewport-based breakpoints. Pass
   `textUnit`/`spaceUnit` to restore `cqw`.
 - The fluid unit can be selected **per-class** with a leading unit token, e.g.
-  `text-fluid-[cqw_16_24]` or `text-fluid-[cqw_16@sm_24@lg]`.
-- Using a **named breakpoint** (e.g. `text-fluid-[16@sm_24@lg]`) selects `vw`
+  `text-fluid-[cqw,16,24]` or `text-fluid-[cqw,16@sm,24@lg]`.
+- Using a **named breakpoint** (e.g. `text-fluid-[16@sm,24@lg]`) selects `vw`
   automatically, since named breakpoints are viewport screens. An inline unit
   token still overrides this.
 

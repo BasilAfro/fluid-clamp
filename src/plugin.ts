@@ -226,12 +226,13 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
 
     addUtilities({ ...typeUtilities, ...spaceUtilities });
 
-    // ── Dynamic arbitrary values ─────────────────────────────────────────────
-    // text-fluid-[16_24]                ← shorthand: two sizes, config breakpoints
-    // text-fluid-[16@320_24@1280]       ← anchors: size pinned to explicit bp
-    // text-fluid-[16@sm_24@lg]          ← anchors with breakpoint names
-    // text-fluid-[16@320-16_24@1280-24] ← per-anchor inset (effective bp = bp − N)
-    // text-fluid-[cqw_16_24]            ← leading unit token (overrides the default)
+    // ── Dynamic arbitrary values (comma-separated; "_" also works) ───────────
+    // text-fluid-[16,24]                ← shorthand: two sizes, config breakpoints
+    // text-fluid-[16@320,24@1280]       ← anchors: size pinned to explicit bp
+    // text-fluid-[16@sm,24@lg]          ← anchors with breakpoint names
+    // text-fluid-[16@320-16,24@1280-24] ← per-anchor inset (effective bp = bp − N)
+    // text-fluid-[cqw,16,24]            ← leading unit token (overrides the default)
+    // text-fluid-[<16@320,24@1280>]     ← break bounds (< opens floor, > opens ceiling)
 
     matchUtilities(
       {

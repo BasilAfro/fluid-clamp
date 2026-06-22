@@ -118,18 +118,21 @@ For one-off values outside the scale, use bracket syntax directly in your JSX.
 All numbers are in `px` (the `px` suffix is optional). The same syntax works on
 every utility: `text-fluid-[...]`, `p-fluid-[...]`, `w-fluid-[...]`, etc.
 
+Tokens are separated by a **comma**. (An underscore — Tailwind's space escape —
+also works, so `text-fluid-[16@320_24@1280]` is accepted as well.)
+
 ### Shorthand — two sizes
 
 Scales between two sizes across the **configured** breakpoints. The first number
 is the size at the min breakpoint, the second at the max:
 
 ```tsx
-<p className="text-fluid-[13_19]" />; // 13px → 19px (grows)
-<p className="text-fluid-[19_13]" />; // 19px → 13px (shrinks as the viewport grows)
+<p className="text-fluid-[13,19]" />; // 13px → 19px (grows)
+<p className="text-fluid-[19,13]" />; // 19px → 13px (shrinks as the viewport grows)
 ```
 
 Put the larger size first to **shrink** as the breakpoint grows; two equal sizes
-just emit that constant value (`text-fluid-[16_16]` → `1rem`). The same holds for
+just emit that constant value (`text-fluid-[16,16]` → `1rem`). The same holds for
 anchors below.
 
 ### Anchors — `size@breakpoint`
@@ -140,12 +143,12 @@ Pin a size to an explicit breakpoint with `size@breakpoint`. Order doesn't matte
 {
   /* 16px at 320, 24px at 1280 */
 }
-<p className="text-fluid-[16@320_24@1280]" />;
+<p className="text-fluid-[16@320,24@1280]" />;
 
 {
   /* Spacing works the same way */
 }
-<div className="p-fluid-[8@320_16@1280]" />;
+<div className="p-fluid-[8@320,16@1280]" />;
 ```
 
 The breakpoint can be a **name** — a Tailwind `theme.screens` entry (`sm`, `md`,
@@ -154,12 +157,12 @@ Names may contain hyphens (e.g. `tablet-portrait`); a registered name is matched
 in full before any trailing `-N` is read as an inset:
 
 ```tsx
-<p className="text-fluid-[16@sm_24@lg]" />;
+<p className="text-fluid-[16@sm,24@lg]" />;
 ```
 
 ```ts
 createFluidPlugin({
-  breakpoints: { xs: 480 }, // now usable as text-fluid-[16@xs_24@lg]
+  breakpoints: { xs: 480 }, // now usable as text-fluid-[16@xs,24@lg]
 });
 ```
 
@@ -173,7 +176,7 @@ for container padding or fixed sibling elements. It's subtracted **directly**
 {
   /* effective range 304 → 1256 (320−16, 1280−24) */
 }
-<p className="text-fluid-[16@320-16_24@1280-24]" />;
+<p className="text-fluid-[16@320-16,24@1280-24]" />;
 ```
 
 > 3+ anchors (piecewise / non-linear ramps) are reserved for a future release.
@@ -187,10 +190,10 @@ the ceiling (keep growing past the max breakpoint). Works on both shorthand and
 anchors, and composes with the unit token and insets.
 
 ```tsx
-<p className="text-fluid-[16@320_24@1280]" />;   {/* clamp() — bounded both ends (default) */}
-<p className="text-fluid-[16@320_24@1280>]" />;  {/* max() — grows past the max bp, floor kept */}
-<p className="text-fluid-[<16@320_24@1280]" />;  {/* min() — shrinks past the min bp, ceiling kept */}
-<p className="text-fluid-[<16@320_24@1280>]" />; {/* calc() — fully linear, unbounded */}
+<p className="text-fluid-[16@320,24@1280]" />;   {/* clamp() — bounded both ends (default) */}
+<p className="text-fluid-[16@320,24@1280>]" />;  {/* max() — grows past the max bp, floor kept */}
+<p className="text-fluid-[<16@320,24@1280]" />;  {/* min() — shrinks past the min bp, ceiling kept */}
+<p className="text-fluid-[<16@320,24@1280>]" />; {/* calc() — fully linear, unbounded */}
 ```
 
 The marker maps to the CSS: open ceiling → `max(floor, …)`, open floor →
@@ -206,10 +209,10 @@ The unit (`vw`, `cqw`, or `cqh`) is chosen automatically, with this precedence:
 3. **Config default** — `textUnit` / `spaceUnit` (default `vw`).
 
 ```tsx
-<p className="text-fluid-[16_24]" />;          {/* default → vw */}
-<p className="text-fluid-[16@sm_24@lg]" />;    {/* named breakpoint → vw */}
-<p className="text-fluid-[cqw_16_24]" />;      {/* inline token → cqw */}
-<p className="text-fluid-[cqw_16@sm_24@lg]" />;{/* token wins over the auto rule */}
+<p className="text-fluid-[16,24]" />;          {/* default → vw */}
+<p className="text-fluid-[16@sm,24@lg]" />;    {/* named breakpoint → vw */}
+<p className="text-fluid-[cqw,16,24]" />;      {/* inline token → cqw */}
+<p className="text-fluid-[cqw,16@sm,24@lg]" />;{/* token wins over the auto rule */}
 ```
 
 > `cqw`/`cqh` are container-relative and require `container-type` on an ancestor;

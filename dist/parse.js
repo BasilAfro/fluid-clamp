@@ -77,23 +77,27 @@ function resolveBreakpointConfig(range, breakpointMap, label) {
 // ─── Arbitrary value parser ───────────────────────────────────────────────────
 // Parses the value inside w-fluid-[...] or text-fluid-[...]
 //
+// Tokens are comma-separated (a space — Tailwind's legacy "_" — also works).
 // Two forms (px suffix optional on every number):
 //
 //   1. Shorthand — two sizes, scaled across the configured breakpoints:
-//        text-fluid-[16_24]
+//        text-fluid-[16,24]
 //
 //   2. Anchors — a size pinned to an explicit breakpoint with `size@breakpoint`:
-//        text-fluid-[16@320_24@1280]      explicit breakpoints
-//        text-fluid-[16@sm_24@lg]         breakpoint names (theme.screens + config)
-//        text-fluid-[16@320-16_24@1280-24] per-anchor inset (effective bp = bp − 16 / − 24)
+//        text-fluid-[16@320,24@1280]      explicit breakpoints
+//        text-fluid-[16@sm,24@lg]         breakpoint names (theme.screens + config)
+//        text-fluid-[16@320-16,24@1280-24] per-anchor inset (effective bp = bp − 16 / − 24)
 //
 //      The inset (`-N`) is subtracted directly from that breakpoint — use it to
 //      account for container padding or sibling elements. (3+ anchors / piecewise
 //      ramps are reserved for a future release.)
 //
+//   Optional bound markers on the bracket edges break the clamp limits: a leading
+//   "<" opens the floor, a trailing ">" opens the ceiling, e.g. text-fluid-[<16@320,24@1280>].
+//
 // The fluid unit is chosen automatically, with this precedence:
 //   1. An explicit leading unit token (cqw|cqh|vw) — always wins:
-//        text-fluid-[cqw_16_24]   text-fluid-[cqw_16@320_24@1280]
+//        text-fluid-[cqw,16,24]   text-fluid-[cqw,16@320,24@1280]
 //   2. A named breakpoint ⇒ vw (named breakpoints are viewport screens).
 //   3. Otherwise the configured default unit (textUnit/spaceUnit, default vw).
 // Strips a trailing "px" suffix and returns the numeric value.
@@ -147,7 +151,9 @@ function parseArbitraryValue(value, fallbackUnit, fallbackRange, breakpoints = {
         clampMax = false;
         body = body.slice(0, -1);
     }
-    const parts = body.split(" ");
+    // Tokens are comma-separated (the documented form). A space is also accepted —
+    // that's what Tailwind turns the legacy "_" separator into — so both work.
+    const parts = body.split(/[\s,]+/);
     // An explicit unit token (cqw|cqh|vw) may lead the value; it always wins.
     let inlineUnit = null;
     if ((0, fluid_1.isFluidUnit)(parts[0])) {

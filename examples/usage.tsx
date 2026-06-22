@@ -58,57 +58,57 @@ export function StaticScaleExamples() {
 // Use these for one-off values that don't fit the scale.
 //
 // Two forms (numbers in px, `px` suffix optional):
-//   [minSize_maxSize]                    shorthand — config breakpoints
-//   [size@breakpoint_size@breakpoint]    anchors — explicit breakpoints (any order)
+//   [minSize,maxSize]                       shorthand — config breakpoints
+//   [size@breakpoint,size@breakpoint]       anchors — explicit breakpoints (any order)
 //
 // Anchor breakpoints accept names (a Tailwind screen or a `breakpoints` entry),
 // and an optional inset `-N` subtracts N px from that breakpoint directly:
-//   [16@sm_24@lg]                named breakpoints
-//   [16@320-16_24@1280-24]       inset → effective breakpoint 304 / 1256
+//   [16@sm,24@lg]                named breakpoints
+//   [16@320-16,24@1280-24]       inset → effective breakpoint 304 / 1256
 //
 // Fluid unit precedence: a leading unit token (vw|cqw|cqh) wins → a named
 // breakpoint implies vw → otherwise the config default (vw).
-//   text-fluid-[cqw_16_24]   text-fluid-[16@sm_24@lg]   text-fluid-[16_24]
+//   text-fluid-[cqw,16,24]   text-fluid-[16@sm,24@lg]   text-fluid-[16,24]
 //
 // Break the bounds to keep scaling past a breakpoint along the same slope:
 //   leading `<` opens the floor, trailing `>` opens the ceiling.
-//   [16@320_24@1280>]   grows past max (max())   [<16@320_24@1280]  shrinks past min (min())
-//   [<16@320_24@1280>]  fully linear (calc())
+//   [16@320,24@1280>]   grows past max (max())   [<16@320,24@1280]  shrinks past min (min())
+//   [<16@320,24@1280>]  fully linear (calc())
 
 export function ArbitraryValueExamples() {
   return (
     <div>
       {/* Shorthand — uses config breakpoints */}
-      <p className="text-fluid-[13_19]">custom font between 13px and 19px</p>
-      <div className="p-fluid-[10_20]">custom padding</div>
-      <div className="gap-fluid-[6_14]">custom gap</div>
+      <p className="text-fluid-[13,19]">custom font between 13px and 19px</p>
+      <div className="p-fluid-[10,20]">custom padding</div>
+      <div className="gap-fluid-[6,14]">custom gap</div>
 
       {/* Anchors — explicit breakpoints (16px at 320, 24px at 1280) */}
-      <p className="text-fluid-[16@320_24@1280]">explicit breakpoints</p>
+      <p className="text-fluid-[16@320,24@1280]">explicit breakpoints</p>
 
       {/* Named breakpoints — resolve from theme.screens + the `breakpoints`
           config option. A named breakpoint auto-selects the vw unit. */}
-      <p className="text-fluid-[16@sm_24@lg]">scales across the sm→lg range</p>
-      <div className="w-fluid-[120@xs_200@xl]">custom name xs (480) → xl</div>
+      <p className="text-fluid-[16@sm,24@lg]">scales across the sm→lg range</p>
+      <div className="w-fluid-[120@xs,200@xl]">custom name xs (480) → xl</div>
 
       {/* Explicit unit token (vw|cqw|cqh) leads the value and always wins —
           this is the per-class "dev input" for choosing the unit. */}
-      <p className="text-fluid-[cqw_16_24]">container-relative (needs container-type)</p>
-      <p className="text-fluid-[cqw_16@sm_24@lg]">
+      <p className="text-fluid-[cqw,16,24]">container-relative (needs container-type)</p>
+      <p className="text-fluid-[cqw,16@sm,24@lg]">
         inline cqw overrides the named-breakpoint vw auto rule
       </p>
 
       {/* Inset — subtract container padding / sibling elements from the bp.
           Card 140→260px, minus 8/12px padding → effective range 132 → 248. */}
-      <div className="w-fluid-[120@140-8_200@260-12]">
+      <div className="w-fluid-[120@140-8,200@260-12]">
         fluid width accounting for card padding
       </div>
 
       {/* Break the bounds — keep scaling past a breakpoint along the same slope.
           `>` opens the ceiling (keep growing), `<` opens the floor (keep shrinking). */}
-      <h1 className="text-fluid-[32@320_64@1280>]">grows past 64px on huge screens</h1>
-      <p className="text-fluid-[<12@320_16@1280]">shrinks below 12px on tiny screens</p>
-      <p className="text-fluid-[<14@320_20@1280>]">fully linear, no clamp</p>
+      <h1 className="text-fluid-[32@320,64@1280>]">grows past 64px on huge screens</h1>
+      <p className="text-fluid-[<12@320,16@1280]">shrinks below 12px on tiny screens</p>
+      <p className="text-fluid-[<14@320,20@1280>]">fully linear, no clamp</p>
     </div>
   );
 }

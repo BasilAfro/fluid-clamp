@@ -31,7 +31,7 @@ function generateCss(
 
 describe("createFluidPlugin (integration)", () => {
   it("emits a named-breakpoint anchor class with auto-vw", async () => {
-    const { css } = await generateCss("text-fluid-[16@sm_24@lg]", {
+    const { css } = await generateCss("text-fluid-[16@sm,24@lg]", {
       breakpoints: { xs: 480 },
     });
     expect(css).toContain("font-size: clamp(1rem, 2.083333vw + 0.166667rem, 1.5rem)");
@@ -47,7 +47,7 @@ describe("createFluidPlugin (integration)", () => {
   });
 
   it("a per-target override beats the general knob", async () => {
-    const { css } = await generateCss("p-fluid-[8@320_16@1280]", {
+    const { css } = await generateCss("p-fluid-[8@320,16@1280]", {
       unit: "vw",
       spaceUnit: "cqw",
     });
@@ -64,22 +64,27 @@ describe("createFluidPlugin (integration)", () => {
   });
 
   it("reserved 3-anchor value produces no class", async () => {
-    const { css } = await generateCss("text-fluid-[16@320_20@768_24@1280]");
+    const { css } = await generateCss("text-fluid-[16@320,20@768,24@1280]");
     expect(css).not.toContain("clamp(");
   });
 
   it("applies a per-anchor inset in an arbitrary value", async () => {
     // 320-16 -> 304, 1280-24 -> 1256; subtracted directly (no ×2)
-    const { css } = await generateCss("text-fluid-[16@320-16_24@1280-24]");
+    const { css } = await generateCss("text-fluid-[16@320-16,24@1280-24]");
     expect(css).toContain("font-size: clamp(1rem, 0.840336vw + 0.840336rem, 1.5rem)");
   });
 
   it("breaks the clamp bounds via < > edge markers (Tailwind extracts them)", async () => {
     const { css } = await generateCss(
-      "text-fluid-[16@320_24@1280>] text-fluid-[<16@320_24@1280] text-fluid-[<16@320_24@1280>]",
+      "text-fluid-[16@320,24@1280>] text-fluid-[<16@320,24@1280] text-fluid-[<16@320,24@1280>]",
     );
     expect(css).toContain("font-size: max(1rem, 0.833333vw + 0.833333rem)"); // open ceiling
     expect(css).toContain("font-size: min(1.5rem, 0.833333vw + 0.833333rem)"); // open floor
     expect(css).toContain("font-size: calc(0.833333vw + 0.833333rem)"); // open both
+  });
+
+  it("still accepts the legacy underscore separator end-to-end", async () => {
+    const { css } = await generateCss("text-fluid-[16@320_24@1280]");
+    expect(css).toContain("font-size: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
   });
 });

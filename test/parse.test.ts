@@ -12,8 +12,9 @@ const BREAKPOINTS = {
 };
 const FALLBACK_RANGE = { minBreakpoint: 320, maxBreakpoint: 1280 };
 
-// parseArbitraryValue receives the value with underscores already turned into
-// spaces by Tailwind, so tests pass space-separated tokens.
+// parseArbitraryValue receives the post-Tailwind value: commas pass through
+// verbatim, and the legacy "_" separator arrives as a space. The blocks below use
+// spaces (the fallback path); a dedicated block covers the comma form.
 const parse = (value: string) =>
   parseArbitraryValue(value, "vw", FALLBACK_RANGE, BREAKPOINTS);
 
@@ -155,6 +156,26 @@ describe("parseArbitraryValue — valid forms", () => {
     expect(parse("cqw 16@sm 24@lg")).toBe(
       "clamp(1rem, 2.083333cqw + 0.166667rem, 1.5rem)",
     );
+  });
+});
+
+describe("parseArbitraryValue — comma separator (primary) + space fallback", () => {
+  it("parses comma-separated anchors and shorthand", () => {
+    expect(parse("16@320,24@1280")).toBe("clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(parse("16,24")).toBe("clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+  });
+
+  it("comma composes with the unit token, named bps, inset, and bound markers", () => {
+    expect(parse("cqw,16@sm,24@lg")).toBe("clamp(1rem, 2.083333cqw + 0.166667rem, 1.5rem)");
+    expect(parse("16@320-16,24@1280-24")).toBe(
+      "clamp(1rem, 0.840336vw + 0.840336rem, 1.5rem)",
+    );
+    expect(parse("<16@320,24@1280>")).toBe("calc(0.833333vw + 0.833333rem)");
+  });
+
+  it("still accepts the legacy space/underscore separator (same result)", () => {
+    expect(parse("16@320 24@1280")).toBe(parse("16@320,24@1280"));
+    expect(parse("cqw 16@sm 24@lg")).toBe(parse("cqw,16@sm,24@lg"));
   });
 });
 
