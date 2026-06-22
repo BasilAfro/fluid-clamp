@@ -11,17 +11,8 @@
  *   plugins: [fluidPlugin]
  */
 import { FluidUnit } from "./fluid";
-export interface BreakpointConfig {
-    /**
-     * Minimum breakpoint — a px number, or a breakpoint name (a Tailwind screen
-     * or a name from the `breakpoints` config), e.g. `"xs"` or `"sm"`.
-     */
-    minBp: number | string;
-    /**
-     * Maximum breakpoint — a px number or a breakpoint name, e.g. `"lg"`.
-     */
-    maxBp: number | string;
-}
+import { BreakpointConfig } from "./parse";
+export type { BreakpointConfig } from "./parse";
 export interface FluidPluginConfig {
     /**
      * Breakpoints used for all fluid utilities (text and spacing).
