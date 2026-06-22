@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.0 — 2026-06-22
 
 - New: `lengthUnit` (`"rem" | "px"`, default `"rem"`) and `rootFontSize` (default
   `16`) options on `createFluidPlugin()`. They apply to every generated utility —

@@ -1,7 +1,11 @@
 {
   "name": "@basilafro/fluid-clamp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Tailwind CSS plugin for fluid clamp utilities using cqw, cqh, and vw",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BasilAfro/fluid-clamp.git"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -13,7 +17,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "peerDependencies": {
     "tailwindcss": ">=3.0.0"
@@ -33,5 +38,8 @@
     "cqw",
     "responsive"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }
