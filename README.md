@@ -128,8 +128,9 @@ is the size at the min breakpoint, the second at the max:
 <p className="text-fluid-[19_13]" />; // 19px → 13px (shrinks as the viewport grows)
 ```
 
-The two sizes just need to differ — put the larger one first to **shrink** as the
-breakpoint grows. The same holds for anchors below.
+Put the larger size first to **shrink** as the breakpoint grows; two equal sizes
+just emit that constant value (`text-fluid-[16_16]` → `1rem`). The same holds for
+anchors below.
 
 ### Anchors — `size@breakpoint`
 
@@ -215,7 +216,7 @@ const fontSize = fluidClamp({
   maxBreakpoint: 1074,
   fluidUnit: "cqw",
 });
-// → "clamp(0.875rem, 2.1739cqw + 0.1875rem, 1.375rem)"
+// → "clamp(0.875rem, 1.038961cqw + 0.677597rem, 1.375rem)"
 ```
 
 ---

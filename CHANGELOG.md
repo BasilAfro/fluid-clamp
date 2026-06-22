@@ -16,7 +16,9 @@
 - Fluid utilities now support **decreasing** sizes — a value that shrinks as the
   breakpoint grows. Put the larger size first: `text-fluid-[24_16]` or
   `text-fluid-[24@320_16@1280]`. `fluidClamp()` accepts `minSize > maxSize`
-  (negative slope) and now only rejects equal sizes.
+  (negative slope). Equal sizes are no longer an error: they emit the constant
+  value directly (`text-fluid-[16_16]` → `1rem`), so data-driven sizes never need
+  to special-case the degenerate case. Only `minBreakpoint >= maxBreakpoint` throws.
 - Fixed: breakpoint names containing **hyphens** (e.g. `tablet-portrait`) now
   resolve in anchors. A registered name is matched in full before a trailing
   `-N` is read as an inset (split on the last dash), so a hyphenated name can
@@ -37,6 +39,9 @@
   e.g. `breakpointRange: { minBreakpoint: "xs", maxBreakpoint: "lg" }`. Names resolve
   from `theme.screens` + the `breakpoints` option; an unknown name throws a
   clear build-time error.
+- Generated values now use **6 decimal places** (was 4). This keeps the rendered
+  size accurate to ~0.00001px at the breakpoints (4 dp left a ~0.001px gap and a
+  sub-pixel discontinuity at the limits) and makes fractional-px bounds exact.
 - New `breakpoints` config option on `createFluidPlugin()` to add names that
   aren't Tailwind screens (e.g. `xs`) or override a screen's px value for fluid
   utilities. Merged on top of `theme.screens`.

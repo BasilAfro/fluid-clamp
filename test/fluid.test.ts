@@ -11,7 +11,7 @@ describe("fluidClamp", () => {
         maxBreakpoint: 1280,
         fluidUnit: "vw",
       }),
-    ).toBe("clamp(1rem, 0.8333vw + 0.8333rem, 1.5rem)");
+    ).toBe("clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
   });
 
   it("honours the fluid unit", () => {
@@ -23,7 +23,7 @@ describe("fluidClamp", () => {
         maxBreakpoint: 1280,
         fluidUnit: "cqw",
       }),
-    ).toBe("clamp(1rem, 0.8333cqw + 0.8333rem, 1.5rem)");
+    ).toBe("clamp(1rem, 0.833333cqw + 0.833333rem, 1.5rem)");
   });
 
   it("emits px when lengthUnit is px", () => {
@@ -50,11 +50,11 @@ describe("fluidClamp", () => {
         maxBreakpoint: 1280,
         fluidUnit: "vw",
       }),
-    ).toBe("clamp(1rem, -0.8333vw + 1.6667rem, 1.5rem)");
+    ).toBe("clamp(1rem, -0.833333vw + 1.666667rem, 1.5rem)");
   });
 
-  it("throws when minSize === maxSize (no fluid range)", () => {
-    expect(() =>
+  it("emits a constant value when minSize === maxSize (no fluid range)", () => {
+    expect(
       fluidClamp({
         minSize: 16,
         maxSize: 16,
@@ -62,7 +62,17 @@ describe("fluidClamp", () => {
         maxBreakpoint: 1280,
         fluidUnit: "vw",
       }),
-    ).toThrow(/must differ/);
+    ).toBe("1rem");
+    expect(
+      fluidClamp({
+        minSize: 16,
+        maxSize: 16,
+        minBreakpoint: 320,
+        maxBreakpoint: 1280,
+        fluidUnit: "vw",
+        lengthUnit: "px",
+      }),
+    ).toBe("16px");
   });
 
   it("throws when minBreakpoint >= maxBreakpoint", () => {
@@ -87,7 +97,7 @@ describe("fluidClamp", () => {
         fluidUnit: "vw",
         rootFontSize: 10,
       }),
-    ).toBe("clamp(1.6rem, 0.8333vw + 1.3333rem, 2.4rem)");
+    ).toBe("clamp(1.6rem, 0.833333vw + 1.333333rem, 2.4rem)");
   });
 
   it("isFluidUnit guards the unit set", () => {

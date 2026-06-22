@@ -14,6 +14,11 @@ export type FluidUnit = (typeof FLUID_UNITS)[number];
 
 export type LengthUnit = "rem" | "px";
 
+// Decimal places for the generated slope, intercept, and clamp bounds. 6 keeps
+// the value at the breakpoints accurate to ~0.00001px (4 left a ~0.001px gap at
+// the limits) without bloating the output.
+const DECIMAL_PLACES = 6;
+
 export function isFluidUnit(value: string): value is FluidUnit {
   return FLUID_UNITS.includes(value as FluidUnit);
 }
@@ -64,12 +69,6 @@ export function fluidClamp(options: FluidClampOptions): string {
     rootFontSize = 16,
   } = options;
 
-  if (minSize === maxSize) {
-    throw new Error(
-      `fluidClamp: minSize and maxSize must differ (both ${minSize})`,
-    );
-  }
-
   if (minBreakpoint >= maxBreakpoint) {
     throw new Error(
       `fluidClamp: minBreakpoint (${minBreakpoint}) must be less than maxBreakpoint (${maxBreakpoint})`,
@@ -81,6 +80,14 @@ export function fluidClamp(options: FluidClampOptions): string {
 
   const minSizeValue = toLengthValue(minSize);
   const maxSizeValue = toLengthValue(maxSize);
+
+  // Equal sizes aren't fluid — there's no slope. Emit the constant value
+  // directly (a clamp would be degenerate) so callers passing data-driven sizes
+  // never have to special-case the "both ends the same" case.
+  if (minSize === maxSize) {
+    return `${parseFloat(minSizeValue.toFixed(DECIMAL_PLACES))}${lengthUnit}`;
+  }
+
   const minBreakpointValue = toLengthValue(minBreakpoint);
   const maxBreakpointValue = toLengthValue(maxBreakpoint);
 
@@ -89,12 +96,16 @@ export function fluidClamp(options: FluidClampOptions): string {
     (maxSizeValue - minSizeValue) / (maxBreakpointValue - minBreakpointValue);
   const intercept = minSizeValue - slope * minBreakpointValue;
 
-  const slopePercent = parseFloat((slope * 100).toFixed(4));
-  const interceptValue = parseFloat(intercept.toFixed(4));
+  const slopePercent = parseFloat((slope * 100).toFixed(DECIMAL_PLACES));
+  const interceptValue = parseFloat(intercept.toFixed(DECIMAL_PLACES));
   // clamp() requires floor ≤ ceiling — the smaller size is the floor regardless
   // of which breakpoint it sits at, so growing and shrinking both work.
-  const lowerBound = parseFloat(Math.min(minSizeValue, maxSizeValue).toFixed(4));
-  const upperBound = parseFloat(Math.max(minSizeValue, maxSizeValue).toFixed(4));
+  const lowerBound = parseFloat(
+    Math.min(minSizeValue, maxSizeValue).toFixed(DECIMAL_PLACES),
+  );
+  const upperBound = parseFloat(
+    Math.max(minSizeValue, maxSizeValue).toFixed(DECIMAL_PLACES),
+  );
 
   const interceptString =
     interceptValue === 0

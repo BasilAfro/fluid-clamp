@@ -92,11 +92,11 @@ describe("parseAnchor", () => {
 
 describe("parseArbitraryValue — valid forms", () => {
   it("shorthand uses the fallback breakpoints", () => {
-    expect(parse("16 24")).toBe("clamp(1rem, 0.8333vw + 0.8333rem, 1.5rem)");
+    expect(parse("16 24")).toBe("clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
   });
 
   it("explicit anchors match the shorthand for the same range", () => {
-    expect(parse("16@320 24@1280")).toBe("clamp(1rem, 0.8333vw + 0.8333rem, 1.5rem)");
+    expect(parse("16@320 24@1280")).toBe("clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
   });
 
   it("anchor order does not matter", () => {
@@ -104,31 +104,36 @@ describe("parseArbitraryValue — valid forms", () => {
   });
 
   it("named breakpoints auto-select vw", () => {
-    expect(parse("16@sm 24@lg")).toBe("clamp(1rem, 2.0833vw + 0.1667rem, 1.5rem)");
+    expect(parse("16@sm 24@lg")).toBe("clamp(1rem, 2.083333vw + 0.166667rem, 1.5rem)");
   });
 
   it("inset is subtracted directly", () => {
     expect(parse("16@320-16 24@1280-24")).toBe(
-      "clamp(1rem, 0.8403vw + 0.8403rem, 1.5rem)",
+      "clamp(1rem, 0.840336vw + 0.840336rem, 1.5rem)",
     );
   });
 
   it("supports decreasing sizes — shorthand (shrink as the viewport grows)", () => {
-    expect(parse("24 16")).toBe("clamp(1rem, -0.8333vw + 1.6667rem, 1.5rem)");
+    expect(parse("24 16")).toBe("clamp(1rem, -0.833333vw + 1.666667rem, 1.5rem)");
+  });
+
+  it("equal sizes emit the constant value (no clamp)", () => {
+    expect(parse("16 16")).toBe("1rem");
+    expect(parse("16@320 16@1280")).toBe("1rem");
   });
 
   it("supports decreasing sizes — anchors, order-independent", () => {
-    expect(parse("24@320 16@1280")).toBe("clamp(1rem, -0.8333vw + 1.6667rem, 1.5rem)");
+    expect(parse("24@320 16@1280")).toBe("clamp(1rem, -0.833333vw + 1.666667rem, 1.5rem)");
     expect(parse("16@1280 24@320")).toBe(parse("24@320 16@1280"));
   });
 
   it("leading unit token overrides the default", () => {
-    expect(parse("cqw 16 24")).toBe("clamp(1rem, 0.8333cqw + 0.8333rem, 1.5rem)");
+    expect(parse("cqw 16 24")).toBe("clamp(1rem, 0.833333cqw + 0.833333rem, 1.5rem)");
   });
 
   it("leading unit token overrides the named-breakpoint auto rule", () => {
     expect(parse("cqw 16@sm 24@lg")).toBe(
-      "clamp(1rem, 2.0833cqw + 0.1667rem, 1.5rem)",
+      "clamp(1rem, 2.083333cqw + 0.166667rem, 1.5rem)",
     );
   });
 });
