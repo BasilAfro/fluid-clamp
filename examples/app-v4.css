@@ -1,0 +1,38 @@
+/**
+ * app-v4.css — Tailwind v4 (CSS-first) setup for the same consuming project as
+ * tailwind.config.ts: a page container going 320px → 1098px with 8px/12px
+ * padding, leaving 304px → 1074px of available space.
+ *
+ * No JS config needed — the plugin is registered and configured right here.
+ * (For the nested config or the `breakpoints` override map, load a JS config
+ * with `@config "./tailwind.config.ts"` instead.)
+ */
+
+@import "tailwindcss";
+
+@plugin "@basilafro/fluid-clamp" {
+  /* Flat form of breakpointRange — @plugin blocks can't nest objects.
+     Available space after subtracting the page container padding.
+     Also accepts breakpoint names, e.g. minBreakpoint: xs; */
+  minBreakpoint: 304;
+  maxBreakpoint: 1074;
+
+  /* This project renders everything inside a page container with
+     container-type, so it overrides the default (vw) to cqw. Individual
+     classes can still opt back with a unit token, and a named breakpoint
+     auto-selects vw — see usage.tsx. */
+  unit: cqw;
+}
+
+@theme {
+  /* Named breakpoints for anchors come straight from the theme —
+     usable as text-fluid-[15@xs,32@lg]. */
+  --breakpoint-xs: 30rem;
+}
+
+/* Required for cqw: the container the fluid values measure against. */
+.page-container {
+  max-width: 1098px;
+  margin-inline: auto;
+  container-type: inline-size;
+}
