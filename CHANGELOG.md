@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+- **Tailwind CSS v4 support** (v3 keeps working unchanged; `peerDependencies`
+  already allowed `>=3.0.0`).
+  - New **default export** built with `plugin.withOptions`, so the CSS-first
+    setup works: `@plugin "@basilafro/fluid-clamp";` — optionally with a flat
+    options block (`minBreakpoint`, `maxBreakpoint`, `textMinBreakpoint`,
+    `textMaxBreakpoint`, `spaceMinBreakpoint`, `spaceMaxBreakpoint`, `unit`,
+    `textUnit`, `spaceUnit`, `lengthUnit`, `rootFontSize`). `@plugin` blocks
+    can't nest objects, so the ranges are spelled out as two keys; the flat
+    endpoints accept px numbers or breakpoint names. The default export also
+    works from a JS config with the same flat keys.
+  - Named breakpoints resolve from v4's `@theme` `--breakpoint-*` variables
+    automatically (they flow through `theme("screens")`), both in anchors
+    (`text-fluid-[16@sm,24@lg]`) and in config/option breakpoint names.
+  - Invalid CSS option values fail loudly at build time (unknown breakpoint
+    name, bad `unit`/`lengthUnit`/`rootFontSize`), consistent with the
+    config-errors-are-loud rule.
+  - Added an `exports` map to package.json (`types` + `default`), keeping
+    `main`/`types` for older tooling.
+  - New v4 integration tests (`test/plugin-v4.test.ts`) covering `@plugin`
+    with and without options, `@theme` breakpoint resolution, the full
+    arbitrary-value grammar, and source extraction of every syntax form
+    (`,` `@` `-` `<` `>`) through v4's oxide scanner.
+- Docs: README restructured with separate v4 (CSS-first) and v3 (JS config)
+  setup sections; new `examples/app-v4.css`; fixed stale
+  `@basilafro/fluid-clamp` imports in the examples.
+
 ## 2.0.0 — 2026-06-22
 
 - New: `lengthUnit` (`"rem" | "px"`, default `"rem"`) and `rootFontSize` (default
