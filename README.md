@@ -1,6 +1,7 @@
 # ba-fluid-clamp
 
 Tailwind CSS plugin for fluid `clamp()` utilities using `cqw`, `cqh`, and `vw`.
+Works with Tailwind CSS **v3** (JS config) and **v4** (CSS-first `@plugin`).
 
 Generates fluid type and spacing classes that scale smoothly between a minimum
 and maximum size across a container or viewport range.
@@ -15,7 +16,52 @@ pnpm add @basilafro/fluid-clamp
 
 ---
 
-## Setup
+## Setup — Tailwind v4 (CSS-first)
+
+Register the plugin in your CSS with `@plugin`:
+
+```css
+/* app.css */
+@import "tailwindcss";
+@plugin "@basilafro/fluid-clamp";
+```
+
+Options go in a block. `@plugin` blocks only carry flat key/value pairs, so the
+breakpoint ranges are spelled out as two keys (this is the flat form of
+`breakpointRange` below):
+
+```css
+@plugin "@basilafro/fluid-clamp" {
+  minBreakpoint: 320; /* px number or breakpoint name, e.g. sm */
+  maxBreakpoint: 1280;
+  unit: vw; /* default — see "Fluid unit selection" below */
+}
+```
+
+Flat option keys: `minBreakpoint`, `maxBreakpoint`, `unit`, `lengthUnit`,
+`rootFontSize`, plus the per-target overrides `textMinBreakpoint`,
+`textMaxBreakpoint`, `spaceMinBreakpoint`, `spaceMaxBreakpoint`, `textUnit`,
+`spaceUnit`. They map 1:1 onto the config options table below.
+
+Named breakpoints come straight from your `@theme` — every `--breakpoint-*`
+variable is usable in anchors and options, no plugin config needed:
+
+```css
+@theme {
+  --breakpoint-xs: 30rem; /* usable as text-fluid-[15@xs,32@lg] */
+}
+```
+
+> Need the nested config or the `breakpoints` override map? Load a JS config
+> with `@config "./tailwind.config.ts"` and register `createFluidPlugin({ … })`
+> there — same as the v3 setup below.
+
+The default export also works from a JS config (v3 or v4), taking the same flat
+keys: `plugins: [fluidClampPlugin({ minBreakpoint: 320, maxBreakpoint: 1280 })]`.
+
+---
+
+## Setup — Tailwind v3 (JS config)
 
 ### 1. Register the plugin
 
@@ -153,8 +199,9 @@ Pin a size to an explicit breakpoint with `size@breakpoint`. Order doesn't matte
 <div className="p-fluid-[8@320,16@1280]" />;
 ```
 
-The breakpoint can be a **name** — a Tailwind `theme.screens` entry (`sm`, `md`,
-`lg`, `xl`, `2xl`, plus custom screens), or a name from the `breakpoints` config.
+The breakpoint can be a **name** — a Tailwind screen (`sm`, `md`, `lg`, `xl`,
+`2xl`, plus custom ones — `theme.screens` in v3, `--breakpoint-*` theme
+variables in v4), or a name from the `breakpoints` config.
 Names may contain hyphens (e.g. `tablet-portrait`); a registered name is matched
 in full before any trailing `-N` is read as an inset:
 
@@ -258,7 +305,14 @@ fluidClamp({ minSize: 14, maxSize: 22, minBreakpoint: 304, maxBreakpoint: 1074, 
 
 ## Zero-config
 
-If you don't need to configure anything, use the pre-built plugin:
+If you don't need to configure anything, in v4 the bare `@plugin` line is all
+there is:
+
+```css
+@plugin "@basilafro/fluid-clamp";
+```
+
+In a JS config, use the pre-built plugin:
 
 ```ts
 import { fluidPlugin } from "@basilafro/fluid-clamp";

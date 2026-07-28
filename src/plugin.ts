@@ -2,7 +2,11 @@
  * plugin.ts
  * Tailwind CSS plugin factory for fluid clamp utilities.
  *
- * Usage in tailwind.config.ts:
+ * Tailwind v4 (CSS-first) — the default export accepts flat options:
+ *   @plugin "@basilafro/fluid-clamp";
+ *   @plugin "@basilafro/fluid-clamp" { minBreakpoint: 320; maxBreakpoint: 1280; unit: vw; }
+ *
+ * Tailwind v3 / JS config:
  *   import { createFluidPlugin } from "@basilafro/fluid-clamp";
  *   plugins: [createFluidPlugin({ ... })]
  *
@@ -12,7 +16,7 @@
  */
 
 import plugin from "tailwindcss/plugin";
-import { fluidClamp, FluidUnit, LengthUnit } from "./fluid";
+import { fluidClamp, isFluidUnit, FLUID_UNITS, FluidUnit, LengthUnit } from "./fluid";
 import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults";
 import {
   BreakpointConfig,
@@ -127,9 +131,14 @@ interface ResolvedConfig {
   rootFontSize: number;
 }
 
+const DEFAULT_BREAKPOINT_RANGE: BreakpointConfig = {
+  minBreakpoint: 320,
+  maxBreakpoint: 1280,
+};
+
 const PLUGIN_DEFAULTS: ResolvedConfig = {
-  textBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
-  spaceBreakpointRange: { minBreakpoint: 320, maxBreakpoint: 1280 },
+  textBreakpointRange: DEFAULT_BREAKPOINT_RANGE,
+  spaceBreakpointRange: DEFAULT_BREAKPOINT_RANGE,
   // vw matches the viewport-based default breakpoints (and the named Tailwind
   // breakpoints). Override per-class with a unit token, e.g. text-fluid-[cqw,15,32].
   textUnit: "vw",
@@ -166,9 +175,15 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
   h: (clampValue) => ({ height: clampValue }),
 };
 
-// ─── Plugin factory ───────────────────────────────────────────────────────────
+// ─── Plugin handler ───────────────────────────────────────────────────────────
+// The actual plugin body, shared by `createFluidPlugin` (v3 / JS config) and the
+// default export (v4 CSS-first `@plugin`). Returns the function that Tailwind
+// calls with its plugin API.
 
-export function createFluidPlugin(config: FluidPluginConfig = {}) {
+/** The function Tailwind calls with its plugin API — same type v3 and v4 accept. */
+type PluginHandler = Parameters<typeof plugin>[0];
+
+function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
   // Precedence: per-target override → general knob → built-in default.
   const resolved: ResolvedConfig = {
     textBreakpointRange:
@@ -191,7 +206,7 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
     rootFontSize: resolved.rootFontSize,
   };
 
-  return plugin(function ({ addUtilities, matchUtilities, theme }) {
+  return function ({ addUtilities, matchUtilities, theme }) {
     // Named breakpoints: Tailwind's theme screens + plugin overrides.
     const breakpointMap = resolveBreakpoints(
       theme as ThemeFunction,
@@ -299,8 +314,125 @@ export function createFluidPlugin(config: FluidPluginConfig = {}) {
       ),
       { type: "any" },
     );
-  });
+  };
 }
+
+// ─── Plugin factory (v3 / JS config) ──────────────────────────────────────────
+
+export function createFluidPlugin(config: FluidPluginConfig = {}) {
+  return plugin(createPluginHandler(config));
+}
+
+// ─── Flat options (v4 CSS-first `@plugin`) ────────────────────────────────────
+// Tailwind v4's `@plugin "…" { … }` blocks only carry flat key/value pairs — no
+// nested objects — so each breakpoint range is spelled out as two keys. The
+// default export accepts these alongside the nested `FluidPluginConfig` keys
+// (nested wins), so the same export works from CSS and from a JS config.
+
+export interface FluidPluginCssOptions {
+  /** Flat form of `breakpointRange.minBreakpoint` (px number or breakpoint name). */
+  minBreakpoint?: number | string;
+  /** Flat form of `breakpointRange.maxBreakpoint` (px number or breakpoint name). */
+  maxBreakpoint?: number | string;
+  /** Flat form of `textBreakpointRange.minBreakpoint`. */
+  textMinBreakpoint?: number | string;
+  /** Flat form of `textBreakpointRange.maxBreakpoint`. */
+  textMaxBreakpoint?: number | string;
+  /** Flat form of `spaceBreakpointRange.minBreakpoint`. */
+  spaceMinBreakpoint?: number | string;
+  /** Flat form of `spaceBreakpointRange.maxBreakpoint`. */
+  spaceMaxBreakpoint?: number | string;
+  unit?: FluidUnit;
+  textUnit?: FluidUnit;
+  spaceUnit?: FluidUnit;
+  lengthUnit?: LengthUnit;
+  rootFontSize?: number;
+}
+
+/** Everything the default export accepts: nested config keys + flat CSS keys. */
+export type FluidPluginOptions = FluidPluginConfig & FluidPluginCssOptions;
+
+// CSS option values arrive as strings or numbers depending on how Tailwind
+// parses the block, so numeric strings ("320") are coerced to numbers here —
+// a non-numeric string stays a breakpoint name and resolves later.
+function coerceNumeric(value: number | string | undefined) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed !== "" && !isNaN(Number(trimmed)) ? Number(trimmed) : value;
+}
+
+// Builds a nested range from a flat endpoint pair; a missing endpoint falls
+// back to the built-in default so `{ maxBreakpoint: 1536 }` alone is valid.
+function rangeFromFlatEndpoints(
+  minBreakpoint: number | string | undefined,
+  maxBreakpoint: number | string | undefined,
+): BreakpointConfig | undefined {
+  if (minBreakpoint === undefined && maxBreakpoint === undefined) return undefined;
+  return {
+    minBreakpoint:
+      coerceNumeric(minBreakpoint) ?? DEFAULT_BREAKPOINT_RANGE.minBreakpoint,
+    maxBreakpoint:
+      coerceNumeric(maxBreakpoint) ?? DEFAULT_BREAKPOINT_RANGE.maxBreakpoint,
+  };
+}
+
+// Validates option values that TypeScript can't check when they come from CSS.
+// Config errors are loud by design — a typo'd unit should fail the build.
+function assertValidUnits(options: FluidPluginOptions) {
+  for (const key of ["unit", "textUnit", "spaceUnit"] as const) {
+    const value = options[key];
+    if (value !== undefined && !isFluidUnit(value)) {
+      throw new Error(
+        `fluid-clamp: invalid ${key} "${value}" — expected one of ${FLUID_UNITS.join(", ")}.`,
+      );
+    }
+  }
+  const { lengthUnit } = options;
+  if (lengthUnit !== undefined && lengthUnit !== "rem" && lengthUnit !== "px") {
+    throw new Error(
+      `fluid-clamp: invalid lengthUnit "${lengthUnit}" — expected rem or px.`,
+    );
+  }
+}
+
+export function normalizeOptions(
+  options: FluidPluginOptions = {},
+): FluidPluginConfig {
+  assertValidUnits(options);
+  const rootFontSize = coerceNumeric(options.rootFontSize);
+  if (rootFontSize !== undefined && typeof rootFontSize !== "number") {
+    throw new Error(
+      `fluid-clamp: invalid rootFontSize "${rootFontSize}" — expected a number (px).`,
+    );
+  }
+  return {
+    breakpointRange:
+      options.breakpointRange ??
+      rangeFromFlatEndpoints(options.minBreakpoint, options.maxBreakpoint),
+    textBreakpointRange:
+      options.textBreakpointRange ??
+      rangeFromFlatEndpoints(options.textMinBreakpoint, options.textMaxBreakpoint),
+    spaceBreakpointRange:
+      options.spaceBreakpointRange ??
+      rangeFromFlatEndpoints(options.spaceMinBreakpoint, options.spaceMaxBreakpoint),
+    unit: options.unit,
+    textUnit: options.textUnit,
+    spaceUnit: options.spaceUnit,
+    lengthUnit: options.lengthUnit,
+    rootFontSize,
+    breakpoints: options.breakpoints,
+  };
+}
+
+// ─── Default export (v4 CSS-first) ────────────────────────────────────────────
+// `@plugin "@basilafro/fluid-clamp";` — optionally with a flat options block.
+// `plugin.withOptions` is what lets Tailwind v4 pass `@plugin { … }` options in.
+
+const fluidClampPlugin = plugin.withOptions<FluidPluginOptions>(
+  (options = {}) => createPluginHandler(normalizeOptions(options)),
+);
+
+export default fluidClampPlugin;
 
 // ─── Convenience export ───────────────────────────────────────────────────────
 // For projects that don't need any config — just import and use.
