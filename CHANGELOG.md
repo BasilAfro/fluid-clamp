@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1.0 - 2026-07-27
 
 - **Tailwind CSS v4 support** (v3 keeps working unchanged; `peerDependencies`
   already allowed `>=3.0.0`).
