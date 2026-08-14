@@ -15,18 +15,18 @@
  *   plugins: [fluidPlugin]
  */
 
-import plugin from "tailwindcss/plugin";
-import { fluidClamp, isFluidUnit, FLUID_UNITS, FluidUnit, LengthUnit } from "./fluid";
-import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults";
+import plugin from "tailwindcss/plugin.js";
+import { fluidClamp, isFluidUnit, FLUID_UNITS, FluidUnit, LengthUnit } from "./fluid.js";
+import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults.js";
 import {
   BreakpointConfig,
   ThemeFunction,
   parseArbitraryValue,
   resolveBreakpoints,
   resolveBreakpointConfig,
-} from "./parse";
+} from "./parse.js";
 
-export type { BreakpointConfig } from "./parse";
+export type { BreakpointConfig } from "./parse.js";
 
 // ─── Plugin config ────────────────────────────────────────────────────────────
 

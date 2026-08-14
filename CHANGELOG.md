@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: ship a real ESM build (`dist/esm`) alongside the existing CJS build
+  (`dist/cjs`), selected via `exports` conditions (`import`/`require`). Node's
+  CJS→ESM interop previously handed Tailwind's plugin loader the whole
+  `module.exports` object instead of the plugin function under `.default`,
+  so consumers importing from an ESM `tailwind.config.ts` (or any ESM context)
+  hit `"The plugin does not accept options"` and had to hand-write an
+  unwrapping shim (`export default pkg.default`). A native ESM build removes
+  the CJS interop step entirely, so `import fluidClamp from "@basilafro/fluid-clamp"`
+  now gets the real `plugin.withOptions` function directly — no shim needed.
+
 ## 2.1.0 - 2026-07-27
 
 - **Tailwind CSS v4 support** (v3 keeps working unchanged; `peerDependencies`
