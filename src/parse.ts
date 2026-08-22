@@ -4,7 +4,7 @@
  * plugin glue so they can be unit-tested directly.
  */
 
-import { fluidClamp, FluidUnit, LengthUnit, isFluidUnit } from "./fluid";
+import { fluidClamp, FluidUnit, LengthUnit, isFluidUnit } from "./fluid.js";
 
 // ─── Breakpoint config ────────────────────────────────────────────────────────
 
