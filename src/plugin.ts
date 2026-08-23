@@ -249,7 +249,6 @@ const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, st
   leading: (clampValue) => ({ lineHeight: clampValue }),
   tracking: (clampValue) => ({ letterSpacing: clampValue }),
   indent: (clampValue) => ({ textIndent: clampValue }),
-  "word-spacing": (clampValue) => ({ wordSpacing: clampValue }),
 };
 
 const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
@@ -286,16 +285,23 @@ const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string
   "rounded-bl": (clampValue) => ({ borderBottomLeftRadius: clampValue }),
 };
 
+// `perspective` has no native utility root in Tailwind v3 at all (verified
+// against real compiled v3.4.19 output — `perspective-500`/`perspective-[…]`
+// produce no CSS), so making it fluid there would invent a utility Tailwind
+// itself doesn't have. Tailwind v4 does ship a native arbitrary-value-only
+// `perspective-[…]` utility, so this is registered for v4 only — see the
+// `cssApi === "v4"` guard around its `matchUtilities` call below.
 const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   perspective: (clampValue) => ({ perspective: clampValue }),
 };
 
 // Arbitrary-only tables, merged for a single matchUtilities registration loop.
+// MISC_PROPS is intentionally excluded — it's registered separately, gated to
+// v4 only (see above).
 const ARBITRARY_ONLY_PROPS = {
   ...TYPOGRAPHY_PROPS,
   ...BORDER_PROPS,
   ...RADIUS_PROPS,
-  ...MISC_PROPS,
 };
 
 // ─── Plugin handler ───────────────────────────────────────────────────────────
@@ -447,7 +453,7 @@ function createPluginHandler(
     );
 
     // ── Arbitrary-only prefixes (no static scale in v1) ─────────────────────
-    // typography, border/outline width, border-radius, perspective — all plain
+    // typography, border/outline width, border-radius — all plain
     // (or dual/quad-declaration) properties, bound to the space breakpoint
     // range/unit like everything else above.
 
@@ -463,6 +469,25 @@ function createPluginHandler(
       ),
       { type: "any" },
     );
+
+    // ── v4-only prefixes ──────────────────────────────────────────────────────
+    // perspective — see the comment on MISC_PROPS for why this doesn't extend
+    // to v3.
+
+    if (cssApi === "v4") {
+      matchUtilities(
+        Object.fromEntries(
+          Object.entries(MISC_PROPS).map(([prefix, toDeclarations]) => [
+            `${prefix}-fluid`,
+            (value: string) => {
+              const clampValue = spaceClamp(value);
+              return clampValue ? toDeclarations(clampValue) : null;
+            },
+          ]),
+        ),
+        { type: "any" },
+      );
+    }
 
     // ── Composite prefixes (translate-x/y, blur, ring, space-x/y, divide-x/y) ─
     // These compose into a shared property/selector via Tailwind's own internal

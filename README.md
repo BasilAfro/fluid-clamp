@@ -202,12 +202,16 @@ below (e.g. `border-fluid-[1,4]`) — their px ranges vary too much from the
 space scale above to reuse it, so v1 ships arbitrary values only and leaves a
 curated default scale for a future release.
 
+`perspective-fluid-*` is only registered under Tailwind v4 (i.e. `cssApi: "v4"`,
+the default for the CSS-first `@plugin` entry point) — Tailwind v3 never
+shipped a native `perspective` utility, so this plugin doesn't invent one for it.
+
 | Category                | Prefixes                                                                                          | CSS property                                                    |
 | ------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Typography               | `leading`, `tracking`, `indent`, `word-spacing`                                                    | `line-height`, `letter-spacing`, `text-indent`, `word-spacing`    |
+| Typography               | `leading`, `tracking`, `indent`                                                                    | `line-height`, `letter-spacing`, `text-indent`                    |
 | Borders / outline        | `border`, `border-t`, `border-r`, `border-b`, `border-l`, `outline`, `outline-offset`               | `border(-*)-width`, `outline-width`, `outline-offset`             |
 | Border radius             | `rounded`, `rounded-t/r/b/l`, `rounded-tl/tr/br/bl`                                                 | `border-radius` (whole or per-corner)                             |
-| Perspective               | `perspective`                                                                                       | `perspective`                                                     |
+| Perspective (v4 only)     | `perspective`                                                                                       | `perspective`                                                     |
 | Transform (composite)    | `translate-x`, `translate-y`                                                                        | `translate` (v4) / `transform` (v3), via `--tw-translate-x/y`     |
 | Filters (composite)      | `blur`, `backdrop-blur`                                                                             | `filter` / `backdrop-filter`, via `--tw-blur`/`--tw-backdrop-blur` |
 | Ring (composite)         | `ring`, `ring-offset`                                                                                | `box-shadow`, via the same `--tw-ring-*` variables Tailwind uses  |
@@ -384,6 +388,50 @@ In a JS config, use the pre-built plugin:
 import { fluidPlugin } from "@basilafro/fluid-clamp";
 plugins: [fluidPlugin];
 ```
+
+---
+
+## `tailwind-merge` / `cn()` integration
+
+`tailwind-merge` only knows Tailwind's built-in scales, so `p-fluid-4`,
+`w-fluid-[16,24]`, `text-fluid-lg`, etc. either land in the wrong class group
+(silently overwritten by an unrelated native utility) or form a lone group
+that never dedupes against a repeat of itself. The `@basilafro/fluid-clamp/tw-merge`
+subpath fixes that — it's a separate entry point so importing the main
+package never pulls in `clsx`/`tailwind-merge` for projects that don't use them.
+
+```
+pnpm add clsx tailwind-merge
+```
+
+Drop-in `cn()`:
+
+```ts
+import { cn } from "@basilafro/fluid-clamp/tw-merge";
+
+cn("p-4", "p-fluid-4"); // → "p-fluid-4"
+cn("ring-fluid-4", "ring-2"); // → "ring-2"
+cn("text-fluid-lg", "text-red-500"); // → "text-fluid-lg text-red-500"
+```
+
+Composing with your own `extendTailwindMerge` config (e.g. a custom
+`font-size` scale) — your `classGroups` entries are added to fluid-clamp's,
+not replaced by them:
+
+```ts
+import { createFluidTwMerge } from "@basilafro/fluid-clamp/tw-merge";
+
+export const cn = createFluidTwMerge({
+  extend: {
+    classGroups: {
+      "font-size": [{ text: ["heading-lg", "heading-sm"] }],
+    },
+  },
+});
+```
+
+The raw `fluidClassGroups` fragment is also exported for consumers who want
+to wire it into their own `extendTailwindMerge` call directly.
 
 ---
 

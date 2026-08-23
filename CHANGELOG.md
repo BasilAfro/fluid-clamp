@@ -2,15 +2,24 @@
 
 ## Unreleased
 
+- Added a `@basilafro/fluid-clamp/tw-merge` subpath export — a ready-made
+  `tailwind-merge`/`clsx` integration (`cn()`, `createFluidTwMerge`,
+  `fluidClassGroups`) so every fluid-clamp utility resolves to the correct
+  `tailwind-merge` class group out of the box, without hand-rolling the
+  `extendTailwindMerge` config per project. `clsx`/`tailwind-merge` are
+  optional peer dependencies, isolated to this subpath so the main entry
+  point stays dependency-free for consumers who don't use them.
 - Added a large batch of new fluid utilities:
   - Sizing/position (static scale, same as `p-fluid-*`): `min-w`, `max-w`,
     `min-h`, `max-h`, `size`, `top`, `right`, `bottom`, `left`, `inset`,
     `inset-x`, `inset-y`, `start`, `end`, `basis`, and the full `scroll-m*`/
     `scroll-p*` directional set.
-  - Typography, borders, radius, and perspective (arbitrary values only):
-    `leading`, `tracking`, `indent`, `word-spacing`, `border`/`border-t/r/b/l`,
-    `outline`, `outline-offset`, `rounded` + all corner/side variants,
-    `perspective`.
+  - Typography, borders, and radius (arbitrary values only): `leading`,
+    `tracking`, `indent`, `border`/`border-t/r/b/l`, `outline`,
+    `outline-offset`, `rounded` + all corner/side variants.
+  - `perspective` (arbitrary values only), registered for Tailwind v4 only —
+    v3 never shipped a native `perspective` utility to extend, so this plugin
+    doesn't invent one there.
   - Composite utilities that compose into a shared Tailwind property
     (`transform`/`translate`, `filter`, `box-shadow`) or a child selector
     instead of a plain CSS property, implemented per Tailwind major version
@@ -22,10 +31,13 @@
     entry point (`createFluidPlugin` vs. the default `@plugin` export) doesn't
     match the Tailwind version actually generating the rest of the page's
     utilities (e.g. Tailwind v4's legacy JS-config compat mode).
-- Tightened the `tailwindcss` peer dependency range to `>=3.0.0 <5.0.0` — the
+- Tightened the `tailwindcss` peer dependency range to `>=3.4.0 <5.0.0` — the
   composite utilities above hardcode Tailwind's internal CSS variable names
   and composition formulas, verified against 3.4.19 and 4.3.2, so an
-  unverified future major version is excluded until re-tested.
+  unverified future major version is excluded until re-tested. The floor was
+  raised from `3.0.0` to `3.4.0` because several fluid utilities extend
+  native Tailwind utilities that didn't exist before 3.4 (`size-*`,
+  `start-*`/`end-*`).
 - Fixed: ship a real ESM build (`dist/esm`) alongside the existing CJS build
   (`dist/cjs`), selected via `exports` conditions (`import`/`require`). Node's
   CJS→ESM interop previously handed Tailwind's plugin loader the whole

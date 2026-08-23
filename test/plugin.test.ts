@@ -135,9 +135,9 @@ describe("createFluidPlugin (integration)", () => {
     expect(css).toContain("scroll-padding-top: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
   });
 
-  it("supports arbitrary values for the new typography/border/radius/perspective prefixes", async () => {
+  it("supports arbitrary values for the new typography/border/radius prefixes", async () => {
     const { css } = await generateCss(
-      "leading-fluid-[16,24] tracking-fluid-[1,2] border-fluid-[1,4] rounded-tl-fluid-[4,12] perspective-fluid-[250,500]",
+      "leading-fluid-[16,24] tracking-fluid-[1,2] border-fluid-[1,4] rounded-tl-fluid-[4,12]",
     );
     expect(css).toContain("line-height: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
     expect(css).toContain("letter-spacing: clamp(0.0625rem, 0.104167vw + 0.041667rem, 0.125rem)");
@@ -145,7 +145,15 @@ describe("createFluidPlugin (integration)", () => {
     expect(css).toContain(
       "border-top-left-radius: clamp(0.25rem, 0.833333vw + 0.083333rem, 0.75rem)",
     );
-    expect(css).toContain("perspective: clamp(15.625rem, 26.041667vw + 10.416667rem, 31.25rem)");
+  });
+
+  // Tailwind v3 never registered a "perspective" utility root (verified
+  // against real compiled v3.4.19 output), so making it fluid there would
+  // invent a utility Tailwind itself doesn't have — perspective-fluid-* is
+  // v4-only, see plugin-v4.test.ts.
+  it("does not register perspective-fluid-* (v3 has no native perspective utility)", async () => {
+    const { css } = await generateCss("perspective-fluid-[250,500]");
+    expect(css).not.toContain("perspective");
   });
 
   it("composes translate-x/y-fluid into transform (v3 formula)", async () => {
