@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added a `@basilafro/fluid-clamp/tw-merge` subpath export — a ready-made
+  `tailwind-merge`/`clsx` integration (`cn()`, `createFluidTwMerge`,
+  `fluidClassGroups`) so every fluid-clamp utility resolves to the correct
+  `tailwind-merge` class group out of the box, without hand-rolling the
+  `extendTailwindMerge` config per project. `clsx`/`tailwind-merge` are
+  optional peer dependencies, isolated to this subpath so the main entry
+  point stays dependency-free for consumers who don't use them.
 - Added a large batch of new fluid utilities:
   - Sizing/position (static scale, same as `p-fluid-*`): `min-w`, `max-w`,
     `min-h`, `max-h`, `size`, `top`, `right`, `bottom`, `left`, `inset`,
