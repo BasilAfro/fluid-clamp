@@ -202,12 +202,16 @@ below (e.g. `border-fluid-[1,4]`) — their px ranges vary too much from the
 space scale above to reuse it, so v1 ships arbitrary values only and leaves a
 curated default scale for a future release.
 
+`perspective-fluid-*` is only registered under Tailwind v4 (i.e. `cssApi: "v4"`,
+the default for the CSS-first `@plugin` entry point) — Tailwind v3 never
+shipped a native `perspective` utility, so this plugin doesn't invent one for it.
+
 | Category                | Prefixes                                                                                          | CSS property                                                    |
 | ------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Typography               | `leading`, `tracking`, `indent`, `word-spacing`                                                    | `line-height`, `letter-spacing`, `text-indent`, `word-spacing`    |
+| Typography               | `leading`, `tracking`, `indent`                                                                    | `line-height`, `letter-spacing`, `text-indent`                    |
 | Borders / outline        | `border`, `border-t`, `border-r`, `border-b`, `border-l`, `outline`, `outline-offset`               | `border(-*)-width`, `outline-width`, `outline-offset`             |
 | Border radius             | `rounded`, `rounded-t/r/b/l`, `rounded-tl/tr/br/bl`                                                 | `border-radius` (whole or per-corner)                             |
-| Perspective               | `perspective`                                                                                       | `perspective`                                                     |
+| Perspective (v4 only)     | `perspective`                                                                                       | `perspective`                                                     |
 | Transform (composite)    | `translate-x`, `translate-y`                                                                        | `translate` (v4) / `transform` (v3), via `--tw-translate-x/y`     |
 | Filters (composite)      | `blur`, `backdrop-blur`                                                                             | `filter` / `backdrop-filter`, via `--tw-blur`/`--tw-backdrop-blur` |
 | Ring (composite)         | `ring`, `ring-offset`                                                                                | `box-shadow`, via the same `--tw-ring-*` variables Tailwind uses  |

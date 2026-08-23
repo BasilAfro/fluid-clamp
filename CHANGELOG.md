@@ -14,10 +14,12 @@
     `min-h`, `max-h`, `size`, `top`, `right`, `bottom`, `left`, `inset`,
     `inset-x`, `inset-y`, `start`, `end`, `basis`, and the full `scroll-m*`/
     `scroll-p*` directional set.
-  - Typography, borders, radius, and perspective (arbitrary values only):
-    `leading`, `tracking`, `indent`, `word-spacing`, `border`/`border-t/r/b/l`,
-    `outline`, `outline-offset`, `rounded` + all corner/side variants,
-    `perspective`.
+  - Typography, borders, and radius (arbitrary values only): `leading`,
+    `tracking`, `indent`, `border`/`border-t/r/b/l`, `outline`,
+    `outline-offset`, `rounded` + all corner/side variants.
+  - `perspective` (arbitrary values only), registered for Tailwind v4 only —
+    v3 never shipped a native `perspective` utility to extend, so this plugin
+    doesn't invent one there.
   - Composite utilities that compose into a shared Tailwind property
     (`transform`/`translate`, `filter`, `box-shadow`) or a child selector
     instead of a plain CSS property, implemented per Tailwind major version
