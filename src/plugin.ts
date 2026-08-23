@@ -25,6 +25,7 @@ import {
   resolveBreakpoints,
   resolveBreakpointConfig,
 } from "./parse.js";
+import { CssApi, COMPOSITE_PROPS } from "./composite.js";
 
 export type { BreakpointConfig } from "./parse.js";
 
@@ -118,6 +119,27 @@ export interface FluidPluginConfig {
    * @default {}
    */
   breakpoints?: Record<string, number>;
+
+  /**
+   * Which Tailwind major version's internal formula to use for the
+   * *composite* utilities (`translate-x/y`, `blur`, `backdrop-blur`, `ring`,
+   * `ring-offset`, `space-x/y`, `divide-x/y`) — the ones that compose into a
+   * shared property (`transform`/`translate`, `filter`, `box-shadow`) or a
+   * child selector instead of setting a plain CSS property directly. v3 and
+   * v4 compose these differently, so picking the wrong one means the fluid
+   * utility won't stack correctly with Tailwind's own `rotate-*`/`scale-*`,
+   * other filter utilities, `ring-color`, etc. on the same element.
+   *
+   * Defaults to `"v3"` from `createFluidPlugin` and `"v4"` from the default
+   * `@plugin`/CSS-first export — the choice that matches each entry point's
+   * usual Tailwind version. Override this explicitly if that assumption
+   * doesn't hold for your setup, e.g. a Tailwind v4 project that still runs
+   * plugins through v4's legacy JS-config compat mode (where other utilities
+   * may still compose the v3 way) — pass `cssApi: "v3"` to `createFluidPlugin`
+   * in that case, or vice versa.
+   * @default "v3" from `createFluidPlugin`, "v4" from the default export
+   */
+  cssApi?: CssApi;
 }
 
 // ─── Resolved config (after applying defaults) ────────────────────────────────
@@ -173,6 +195,107 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
   "gap-y": (clampValue) => ({ rowGap: clampValue }),
   w: (clampValue) => ({ width: clampValue }),
   h: (clampValue) => ({ height: clampValue }),
+  "min-w": (clampValue) => ({ minWidth: clampValue }),
+  "max-w": (clampValue) => ({ maxWidth: clampValue }),
+  "min-h": (clampValue) => ({ minHeight: clampValue }),
+  "max-h": (clampValue) => ({ maxHeight: clampValue }),
+  size: (clampValue) => ({ width: clampValue, height: clampValue }),
+  top: (clampValue) => ({ top: clampValue }),
+  right: (clampValue) => ({ right: clampValue }),
+  bottom: (clampValue) => ({ bottom: clampValue }),
+  left: (clampValue) => ({ left: clampValue }),
+  inset: (clampValue) => ({ inset: clampValue }),
+  "inset-x": (clampValue) => ({ left: clampValue, right: clampValue }),
+  "inset-y": (clampValue) => ({ top: clampValue, bottom: clampValue }),
+  start: (clampValue) => ({ insetInlineStart: clampValue }),
+  end: (clampValue) => ({ insetInlineEnd: clampValue }),
+  basis: (clampValue) => ({ flexBasis: clampValue }),
+  "scroll-m": (clampValue) => ({ scrollMargin: clampValue }),
+  "scroll-mx": (clampValue) => ({
+    scrollMarginLeft: clampValue,
+    scrollMarginRight: clampValue,
+  }),
+  "scroll-my": (clampValue) => ({
+    scrollMarginTop: clampValue,
+    scrollMarginBottom: clampValue,
+  }),
+  "scroll-mt": (clampValue) => ({ scrollMarginTop: clampValue }),
+  "scroll-mr": (clampValue) => ({ scrollMarginRight: clampValue }),
+  "scroll-mb": (clampValue) => ({ scrollMarginBottom: clampValue }),
+  "scroll-ml": (clampValue) => ({ scrollMarginLeft: clampValue }),
+  "scroll-p": (clampValue) => ({ scrollPadding: clampValue }),
+  "scroll-px": (clampValue) => ({
+    scrollPaddingLeft: clampValue,
+    scrollPaddingRight: clampValue,
+  }),
+  "scroll-py": (clampValue) => ({
+    scrollPaddingTop: clampValue,
+    scrollPaddingBottom: clampValue,
+  }),
+  "scroll-pt": (clampValue) => ({ scrollPaddingTop: clampValue }),
+  "scroll-pr": (clampValue) => ({ scrollPaddingRight: clampValue }),
+  "scroll-pb": (clampValue) => ({ scrollPaddingBottom: clampValue }),
+  "scroll-pl": (clampValue) => ({ scrollPaddingLeft: clampValue }),
+};
+
+// ─── Arbitrary-only prefixes ───────────────────────────────────────────────────
+// These prefixes don't get a static default scale (v1 decision — their px
+// ranges differ too much from the space scale to reuse it, and inventing a
+// curated scale per category is deferred). They still get full arbitrary-value
+// support via `${prefix}-fluid-[…]`, bound to the same `spaceClamp` resolver
+// as `SPACE_PROPS` (same breakpoint range/unit as spacing).
+
+const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  leading: (clampValue) => ({ lineHeight: clampValue }),
+  tracking: (clampValue) => ({ letterSpacing: clampValue }),
+  indent: (clampValue) => ({ textIndent: clampValue }),
+  "word-spacing": (clampValue) => ({ wordSpacing: clampValue }),
+};
+
+const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  border: (clampValue) => ({ borderWidth: clampValue }),
+  "border-t": (clampValue) => ({ borderTopWidth: clampValue }),
+  "border-r": (clampValue) => ({ borderRightWidth: clampValue }),
+  "border-b": (clampValue) => ({ borderBottomWidth: clampValue }),
+  "border-l": (clampValue) => ({ borderLeftWidth: clampValue }),
+  outline: (clampValue) => ({ outlineWidth: clampValue }),
+  "outline-offset": (clampValue) => ({ outlineOffset: clampValue }),
+};
+
+const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  rounded: (clampValue) => ({ borderRadius: clampValue }),
+  "rounded-t": (clampValue) => ({
+    borderTopLeftRadius: clampValue,
+    borderTopRightRadius: clampValue,
+  }),
+  "rounded-r": (clampValue) => ({
+    borderTopRightRadius: clampValue,
+    borderBottomRightRadius: clampValue,
+  }),
+  "rounded-b": (clampValue) => ({
+    borderBottomRightRadius: clampValue,
+    borderBottomLeftRadius: clampValue,
+  }),
+  "rounded-l": (clampValue) => ({
+    borderTopLeftRadius: clampValue,
+    borderBottomLeftRadius: clampValue,
+  }),
+  "rounded-tl": (clampValue) => ({ borderTopLeftRadius: clampValue }),
+  "rounded-tr": (clampValue) => ({ borderTopRightRadius: clampValue }),
+  "rounded-br": (clampValue) => ({ borderBottomRightRadius: clampValue }),
+  "rounded-bl": (clampValue) => ({ borderBottomLeftRadius: clampValue }),
+};
+
+const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  perspective: (clampValue) => ({ perspective: clampValue }),
+};
+
+// Arbitrary-only tables, merged for a single matchUtilities registration loop.
+const ARBITRARY_ONLY_PROPS = {
+  ...TYPOGRAPHY_PROPS,
+  ...BORDER_PROPS,
+  ...RADIUS_PROPS,
+  ...MISC_PROPS,
 };
 
 // ─── Plugin handler ───────────────────────────────────────────────────────────
@@ -183,7 +306,15 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
 /** The function Tailwind calls with its plugin API — same type v3 and v4 accept. */
 type PluginHandler = Parameters<typeof plugin>[0];
 
-function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
+function createPluginHandler(
+  config: FluidPluginConfig = {},
+  defaultCssApi: CssApi = "v3",
+): PluginHandler {
+  // `config.cssApi` (an explicit override) wins over the entry point's usual
+  // default — see the `cssApi` doc comment on `FluidPluginConfig` for when
+  // that override is needed (e.g. Tailwind v4's legacy JS-config compat mode).
+  const cssApi = config.cssApi ?? defaultCssApi;
+
   // Precedence: per-target override → general knob → built-in default.
   const resolved: ResolvedConfig = {
     textBreakpointRange:
@@ -314,13 +445,48 @@ function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
       ),
       { type: "any" },
     );
+
+    // ── Arbitrary-only prefixes (no static scale in v1) ─────────────────────
+    // typography, border/outline width, border-radius, perspective — all plain
+    // (or dual/quad-declaration) properties, bound to the space breakpoint
+    // range/unit like everything else above.
+
+    matchUtilities(
+      Object.fromEntries(
+        Object.entries(ARBITRARY_ONLY_PROPS).map(([prefix, toDeclarations]) => [
+          `${prefix}-fluid`,
+          (value: string) => {
+            const clampValue = spaceClamp(value);
+            return clampValue ? toDeclarations(clampValue) : null;
+          },
+        ]),
+      ),
+      { type: "any" },
+    );
+
+    // ── Composite prefixes (translate-x/y, blur, ring, space-x/y, divide-x/y) ─
+    // These compose into a shared property/selector via Tailwind's own internal
+    // CSS variables, which differ between v3 and v4 — see composite.ts.
+
+    matchUtilities(
+      Object.fromEntries(
+        Object.entries(COMPOSITE_PROPS).map(([prefix, toDeclarations]) => [
+          `${prefix}-fluid`,
+          (value: string) => {
+            const clampValue = spaceClamp(value);
+            return clampValue ? toDeclarations(cssApi, clampValue) : null;
+          },
+        ]),
+      ),
+      { type: "any" },
+    );
   };
 }
 
 // ─── Plugin factory (v3 / JS config) ──────────────────────────────────────────
 
 export function createFluidPlugin(config: FluidPluginConfig = {}) {
-  return plugin(createPluginHandler(config));
+  return plugin(createPluginHandler(config, "v3"));
 }
 
 // ─── Flat options (v4 CSS-first `@plugin`) ────────────────────────────────────
@@ -347,6 +513,7 @@ export interface FluidPluginCssOptions {
   spaceUnit?: FluidUnit;
   lengthUnit?: LengthUnit;
   rootFontSize?: number;
+  cssApi?: CssApi;
 }
 
 /** Everything the default export accepts: nested config keys + flat CSS keys. */
@@ -393,6 +560,10 @@ function assertValidUnits(options: FluidPluginOptions) {
       `fluid-clamp: invalid lengthUnit "${lengthUnit}" — expected rem or px.`,
     );
   }
+  const { cssApi } = options;
+  if (cssApi !== undefined && cssApi !== "v3" && cssApi !== "v4") {
+    throw new Error(`fluid-clamp: invalid cssApi "${cssApi}" — expected v3 or v4.`);
+  }
 }
 
 export function normalizeOptions(
@@ -421,6 +592,7 @@ export function normalizeOptions(
     lengthUnit: options.lengthUnit,
     rootFontSize,
     breakpoints: options.breakpoints,
+    cssApi: options.cssApi,
   };
 }
 
@@ -429,7 +601,7 @@ export function normalizeOptions(
 // `plugin.withOptions` is what lets Tailwind v4 pass `@plugin { … }` options in.
 
 const fluidClampPlugin = plugin.withOptions<FluidPluginOptions>(
-  (options = {}) => createPluginHandler(normalizeOptions(options)),
+  (options = {}) => createPluginHandler(normalizeOptions(options), "v4"),
 );
 
 export default fluidClampPlugin;
