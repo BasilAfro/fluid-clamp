@@ -113,10 +113,38 @@ setup**. You only need `container-type` if you opt into container units
 | `spaceBreakpointRange` | `{ minBreakpoint, maxBreakpoint }`     | `breakpointRange`      | Override the breakpoint range for spacing utilities only     |
 | `textUnit`             | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for text only                            |
 | `spaceUnit`            | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for spacing only                         |
+| `cssApi`               | `"v3" \| "v4"`                         | see below              | Which Tailwind major version's formula to use for composite utilities |
 
 Most projects only need `breakpointRange` and `unit`. The four `text*`/`space*` keys are
 escape hatches for the rarer case where text and spacing scale differently
 (e.g. text against the viewport, spacing against a component container).
+
+`cssApi` only affects the [composite utilities](#arbitrary-only-utilities-no-static-scale-yet)
+(`translate-x/y`, `blur`, `backdrop-blur`, `ring`, `ring-offset`, `space-x/y`,
+`divide-x/y`) — it defaults to `"v3"` from `createFluidPlugin` and `"v4"` from
+the default `@plugin`/CSS-first export, matching each entry point's usual
+Tailwind version. Override it explicitly if that doesn't hold for your setup —
+for example, a Tailwind v4 project that still runs plugins through v4's legacy
+JS-config compat mode, where other utilities on the page may still compose the
+v3 way even though npm has v4 installed:
+
+```ts
+// Tailwind v4 project using the legacy JS-config compat path
+createFluidPlugin({ cssApi: "v3" }); // instead of the "v4" you might expect
+```
+
+```css
+/* Tailwind v3 project loading the CSS-first entry via a compat shim */
+@plugin "@basilafro/fluid-clamp" {
+  cssApi: v3;
+}
+```
+
+Picking the wrong `cssApi` doesn't break the plain-property utilities (`p-fluid-*`,
+`border-fluid-*`, etc.) — only the composite ones, which would then use the
+wrong internal variable names and stop composing with Tailwind's own
+`rotate-*`/`scale-*`, other filter utilities, `ring-color`, etc. on the same
+element.
 
 `minBreakpoint`/`maxBreakpoint` (in `breakpointRange`, `textBreakpointRange`,
 `spaceBreakpointRange`) accept either a px number or a **breakpoint name** — a
@@ -152,11 +180,49 @@ An unknown name throws a clear config error at build time.
 
 ### Space scale
 
-Prefixes: `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl`, `m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml`, `gap`, `gap-x`, `gap-y`, `w`, `h`
+Prefixes: `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl`, `m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml`,
+`gap`, `gap-x`, `gap-y`, `w`, `h`, `min-w`, `max-w`, `min-h`, `max-h`, `size`,
+`top`, `right`, `bottom`, `left`, `inset`, `inset-x`, `inset-y`, `start`, `end`,
+`basis`, `scroll-m`, `scroll-mx`, `scroll-my`, `scroll-mt`, `scroll-mr`, `scroll-mb`,
+`scroll-ml`, `scroll-p`, `scroll-px`, `scroll-py`, `scroll-pt`, `scroll-pr`,
+`scroll-pb`, `scroll-pl`
 
 Steps: `1 2 3 4 6 8 10 12 16 20 24`
 
-Example: `p-fluid-4`, `gap-fluid-6`, `w-fluid-12`
+Example: `p-fluid-4`, `gap-fluid-6`, `w-fluid-12`, `inset-fluid-4`, `size-fluid-8`
+
+`start`/`end` are the logical (RTL-aware) equivalents of `left`/`right` —
+`inset-inline-start`/`inset-inline-end`. `size` sets `width` and `height`
+together from the same clamp value.
+
+### Arbitrary-only utilities (no static scale yet)
+
+These utilities only support the [arbitrary-value syntax](#arbitrary-values)
+below (e.g. `border-fluid-[1,4]`) — their px ranges vary too much from the
+space scale above to reuse it, so v1 ships arbitrary values only and leaves a
+curated default scale for a future release.
+
+| Category                | Prefixes                                                                                          | CSS property                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Typography               | `leading`, `tracking`, `indent`, `word-spacing`                                                    | `line-height`, `letter-spacing`, `text-indent`, `word-spacing`    |
+| Borders / outline        | `border`, `border-t`, `border-r`, `border-b`, `border-l`, `outline`, `outline-offset`               | `border(-*)-width`, `outline-width`, `outline-offset`             |
+| Border radius             | `rounded`, `rounded-t/r/b/l`, `rounded-tl/tr/br/bl`                                                 | `border-radius` (whole or per-corner)                             |
+| Perspective               | `perspective`                                                                                       | `perspective`                                                     |
+| Transform (composite)    | `translate-x`, `translate-y`                                                                        | `translate` (v4) / `transform` (v3), via `--tw-translate-x/y`     |
+| Filters (composite)      | `blur`, `backdrop-blur`                                                                             | `filter` / `backdrop-filter`, via `--tw-blur`/`--tw-backdrop-blur` |
+| Ring (composite)         | `ring`, `ring-offset`                                                                                | `box-shadow`, via the same `--tw-ring-*` variables Tailwind uses  |
+| Spacing between children (composite) | `space-x`, `space-y`, `divide-x`, `divide-y`                                              | margin/border-width on `> :not(:last-child)`                      |
+
+Example: `border-fluid-[1,4]`, `rounded-tl-fluid-[4,12]`, `leading-fluid-[16,24]`,
+`translate-x-fluid-[8,24]`, `space-x-fluid-[8,16]`.
+
+The **composite** utilities above don't set a plain CSS property — they write
+to the same internal CSS variables Tailwind's own `translate-*`/`rotate-*`/
+`scale-*`, `blur-*`/other filter utilities, `ring-*`, and `space-x/y`/
+`divide-x/y` utilities use, so they compose correctly with those native
+utilities on the same element (e.g. `translate-x-fluid-[8,24]` and `rotate-45`
+both apply). The exact formula is resolved automatically for Tailwind v3 vs
+v4, since the two versions compose these differently under the hood.
 
 ---
 

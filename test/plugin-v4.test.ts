@@ -157,4 +157,106 @@ describe("Tailwind v4 (@plugin, CSS-first)", () => {
     });
     expect(css).toContain("padding: clamp(0.5rem, 0.833333cqw + 0.333333rem, 1rem)");
   });
+
+  it("emits the new static space-scale entries (sizing, inset/position, scroll-m/p)", async () => {
+    const css = await generateV4Css([
+      "min-w-fluid-4",
+      "max-w-fluid-4",
+      "size-fluid-4",
+      "inset-fluid-4",
+      "inset-x-fluid-4",
+      "start-fluid-4",
+      "basis-fluid-4",
+      "scroll-mt-fluid-4",
+      "scroll-pt-fluid-4",
+    ]);
+    expect(css).toContain("min-width: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("max-width: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("inset: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("inset-inline-start: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("flex-basis: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("scroll-margin-top: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("scroll-padding-top: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+  });
+
+  it("supports arbitrary values for the new typography/border/radius/perspective prefixes", async () => {
+    const css = await generateV4Css([
+      "leading-fluid-[16,24]",
+      "tracking-fluid-[1,2]",
+      "border-fluid-[1,4]",
+      "rounded-tl-fluid-[4,12]",
+      "perspective-fluid-[250,500]",
+    ]);
+    expect(css).toContain("line-height: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)");
+    expect(css).toContain("letter-spacing: clamp(0.0625rem, 0.104167vw + 0.041667rem, 0.125rem)");
+    expect(css).toContain("border-width: clamp(0.0625rem, 0.3125vw, 0.25rem)");
+    expect(css).toContain(
+      "border-top-left-radius: clamp(0.25rem, 0.833333vw + 0.083333rem, 0.75rem)",
+    );
+    expect(css).toContain("perspective: clamp(15.625rem, 26.041667vw + 10.416667rem, 31.25rem)");
+  });
+
+  it("composes translate-x/y-fluid into the v4 `translate` property", async () => {
+    const css = await generateV4Css(["translate-x-fluid-[8,16]", "translate-y-fluid-[8,16]"]);
+    expect(css).toContain("--tw-translate-x: clamp(0.5rem, 0.833333vw + 0.333333rem, 1rem)");
+    expect(css).toContain("translate: var(--tw-translate-x) var(--tw-translate-y)");
+  });
+
+  it("composes blur-fluid/backdrop-blur-fluid into filter/backdrop-filter (v4 fallback syntax)", async () => {
+    const css = await generateV4Css(["blur-fluid-[4,16]", "backdrop-blur-fluid-[4,16]"]);
+    expect(css).toContain("--tw-blur: blur(clamp(0.25rem, 1.25vw, 1rem))");
+    expect(css).toContain(
+      "filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,)",
+    );
+    expect(css).toContain("--tw-backdrop-blur: blur(clamp(0.25rem, 1.25vw, 1rem))");
+    expect(css).toContain("-webkit-backdrop-filter:");
+    expect(css).toContain("backdrop-filter: var(--tw-backdrop-blur,)");
+  });
+
+  it("composes ring-fluid/ring-offset-fluid into box-shadow (v4 formula)", async () => {
+    const css = await generateV4Css(["ring-fluid-[1,4]", "ring-offset-fluid-[1,4]"]);
+    expect(css).toContain(
+      "--tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(clamp(0.0625rem, 0.3125vw, 0.25rem) + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor)",
+    );
+    expect(css).toContain(
+      "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)",
+    );
+    expect(css).toContain("--tw-ring-offset-width: clamp(0.0625rem, 0.3125vw, 0.25rem)");
+  });
+
+  it("space-x/y-fluid and divide-x/y-fluid target the v4 :where(&>:not(:last-child)) selector", async () => {
+    const css = await generateV4Css([
+      "space-x-fluid-[8,16]",
+      "space-y-fluid-[8,16]",
+      "divide-x-fluid-[1,4]",
+      "divide-y-fluid-[1,4]",
+    ]);
+    expect(css).toContain(":where(& > :not(:last-child))");
+    expect(css).toContain("--tw-space-x-reverse: 0");
+    expect(css).toContain(
+      "margin-inline-start: calc(clamp(0.5rem, 0.833333vw + 0.333333rem, 1rem) * var(--tw-space-x-reverse))",
+    );
+    expect(css).toContain("--tw-divide-x-reverse: 0");
+    expect(css).toContain(
+      "border-inline-start-width: calc(clamp(0.0625rem, 0.3125vw, 0.25rem) * var(--tw-divide-x-reverse))",
+    );
+  });
+
+  it("cssApi: v3 in the @plugin block overrides the default export's v4 default", async () => {
+    const css = await generateV4Css(["translate-x-fluid-[8,16]"], {
+      pluginDirective: `@plugin "@basilafro/fluid-clamp" { cssApi: v3; }`,
+    });
+    expect(css).toContain("--tw-translate-x: clamp(0.5rem, 0.833333vw + 0.333333rem, 1rem)");
+    expect(css).toContain(
+      "transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))",
+    );
+  });
+
+  it("an invalid cssApi in the options block throws a build-time error", async () => {
+    await expect(
+      generateV4Css(["translate-x-fluid-[8,16]"], {
+        pluginDirective: `@plugin "@basilafro/fluid-clamp" { cssApi: v5; }`,
+      }),
+    ).rejects.toThrow(/invalid cssApi "v5"/);
+  });
 });

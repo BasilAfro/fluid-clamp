@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- Added a large batch of new fluid utilities:
+  - Sizing/position (static scale, same as `p-fluid-*`): `min-w`, `max-w`,
+    `min-h`, `max-h`, `size`, `top`, `right`, `bottom`, `left`, `inset`,
+    `inset-x`, `inset-y`, `start`, `end`, `basis`, and the full `scroll-m*`/
+    `scroll-p*` directional set.
+  - Typography, borders, radius, and perspective (arbitrary values only):
+    `leading`, `tracking`, `indent`, `word-spacing`, `border`/`border-t/r/b/l`,
+    `outline`, `outline-offset`, `rounded` + all corner/side variants,
+    `perspective`.
+  - Composite utilities that compose into a shared Tailwind property
+    (`transform`/`translate`, `filter`, `box-shadow`) or a child selector
+    instead of a plain CSS property, implemented per Tailwind major version
+    so they stay compatible with native utilities on the same element:
+    `translate-x`, `translate-y`, `blur`, `backdrop-blur`, `ring`,
+    `ring-offset`, `space-x`, `space-y`, `divide-x`, `divide-y`.
+  - New `cssApi: "v3" | "v4"` config option to override which Tailwind major
+    version's formula the composite utilities above use, for setups where the
+    entry point (`createFluidPlugin` vs. the default `@plugin` export) doesn't
+    match the Tailwind version actually generating the rest of the page's
+    utilities (e.g. Tailwind v4's legacy JS-config compat mode).
+- Tightened the `tailwindcss` peer dependency range to `>=3.0.0 <5.0.0` — the
+  composite utilities above hardcode Tailwind's internal CSS variable names
+  and composition formulas, verified against 3.4.19 and 4.3.2, so an
+  unverified future major version is excluded until re-tested.
 - Fixed: ship a real ESM build (`dist/esm`) alongside the existing CJS build
   (`dist/cjs`), selected via `exports` conditions (`import`/`require`). Node's
   CJS→ESM interop previously handed Tailwind's plugin loader the whole
