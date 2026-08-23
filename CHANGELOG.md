@@ -31,10 +31,13 @@
     entry point (`createFluidPlugin` vs. the default `@plugin` export) doesn't
     match the Tailwind version actually generating the rest of the page's
     utilities (e.g. Tailwind v4's legacy JS-config compat mode).
-- Tightened the `tailwindcss` peer dependency range to `>=3.0.0 <5.0.0` — the
+- Tightened the `tailwindcss` peer dependency range to `>=3.4.0 <5.0.0` — the
   composite utilities above hardcode Tailwind's internal CSS variable names
   and composition formulas, verified against 3.4.19 and 4.3.2, so an
-  unverified future major version is excluded until re-tested.
+  unverified future major version is excluded until re-tested. The floor was
+  raised from `3.0.0` to `3.4.0` because several fluid utilities extend
+  native Tailwind utilities that didn't exist before 3.4 (`size-*`,
+  `start-*`/`end-*`).
 - Fixed: ship a real ESM build (`dist/esm`) alongside the existing CJS build
   (`dist/cjs`), selected via `exports` conditions (`import`/`require`). Node's
   CJS→ESM interop previously handed Tailwind's plugin loader the whole
