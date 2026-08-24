@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- New: **`fluidVars`** config option — emits fluid `:root` CSS custom
+  properties instead of utility classes, e.g.
+  `fluidVars: { "text-xs": "10@390,11@768,12@1280" }` → `--text-xs`, useful
+  for overriding Tailwind's own scale variables or any global design token
+  across breakpoints. Each value is parsed with the exact same
+  arbitrary-value grammar as `text-fluid-[...]` (shorthand, anchors, named
+  breakpoints, insets, the unit token, bound markers, and piecewise 3+
+  anchors), so a 3+ anchor value emits a base `:root` declaration plus one
+  `@media (min-width: …)` override per extra anchor — reusing the same
+  parser and `FluidCssValue` shape as the piecewise-ramp feature below.
+  Resolved against `textUnit`/`textBreakpointRange`. `@plugin` blocks are
+  flat-key-only, so this option is JS-config-only, same as `breakpoints`. An
+  unparsable value throws a clear build-time error.
 - New: **piecewise ramps** — arbitrary-value anchors are no longer capped at
   two. `text-fluid-[24@390,28@640,42@768,48@1024]` (and every other
   `*-fluid-[...]` prefix) now accepts 3+ anchors: each consecutive pair (sorted

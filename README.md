@@ -114,6 +114,7 @@ setup**. You only need `container-type` if you opt into container units
 | `textUnit`             | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for text only                            |
 | `spaceUnit`            | `"vw" \| "cqw" \| "cqh"`               | `unit`                 | Override fluid unit for spacing only                         |
 | `cssApi`               | `"v3" \| "v4"`                         | see below              | Which Tailwind major version's formula to use for composite utilities |
+| `fluidVars`            | `Record<string, string>`               | `{}`                   | Fluid CSS custom properties (`:root` overrides) — see below   |
 
 Most projects only need `breakpointRange` and `unit`. The four `text*`/`space*` keys are
 escape hatches for the rarer case where text and spacing scale differently
@@ -158,6 +159,50 @@ createFluidPlugin({
 ```
 
 An unknown name throws a clear config error at build time.
+
+### `fluidVars` — fluid CSS custom properties
+
+`fluidVars` emits `:root` overrides instead of utility classes — handy for
+overriding Tailwind's own scale variables (`--text-xs`, `--text-sm`, …) or any
+global design token across breakpoints, without needing an element to carry a
+class:
+
+```ts
+createFluidPlugin({
+  fluidVars: {
+    "text-xs": "10@390,11@768,12@1280",
+    "text-sm": "11@390,12@768,14@1280",
+  },
+});
+```
+
+```css
+/* generated */
+:root {
+  --text-xs: clamp(0.625rem, 0.26455vw + 0.560516rem, 0.6875rem);
+}
+@media (min-width: 768px) {
+  :root {
+    --text-xs: clamp(0.6875rem, 0.195313vw + 0.59375rem, 0.75rem);
+  }
+}
+```
+
+Each key becomes `--${key}`; each value is parsed with the **exact same
+arbitrary-value grammar** as `text-fluid-[...]` (minus the brackets) —
+shorthand, anchors, named breakpoints, insets, the unit token, and bound
+markers all work identically, including [piecewise ramps](#piecewise-ramps--3-anchors)
+for 3+ anchors (shown above: a base declaration plus one `@media` override per
+extra anchor). Values are resolved against the same `textUnit`/
+`textBreakpointRange` as `text-fluid-*`, so a shorthand value like `"10,12"`
+scales across `textBreakpointRange`.
+
+An unparsable value throws a clear config error at build time, the same way
+an unknown breakpoint name does.
+
+> `@plugin` blocks only carry flat key/value pairs, so `fluidVars` (like
+> `breakpoints`) is JS-config-only — load one via `@config "./tailwind.config.ts"`
+> and register `createFluidPlugin({ fluidVars: { ... } })` there.
 
 ---
 

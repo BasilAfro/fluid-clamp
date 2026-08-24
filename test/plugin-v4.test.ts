@@ -121,6 +121,17 @@ describe("Tailwind v4 (@plugin, CSS-first)", () => {
     expect(css).toContain("clamp(1.25rem, 0.78125vw + 0.875rem, 1.5rem)");
   });
 
+  it("fluidVars emits :root overrides via createFluidPlugin (nested JS config)", async () => {
+    const css = await generateV4Css([], {
+      module: createFluidPlugin({
+        fluidVars: { "text-xs": "10@320,11@768,12@1280" },
+      }) as LoadedModule["module"],
+    });
+    expect(css).toContain("--text-xs: clamp(0.625rem, 0.223214vw + 0.580357rem, 0.6875rem)");
+    expect(css).toContain("@media (min-width: 768px)");
+    expect(css).toContain("--text-xs: clamp(0.6875rem, 0.195313vw + 0.59375rem, 0.75rem)");
+  });
+
   it("an unknown breakpoint name in the options block throws a build-time error", async () => {
     await expect(
       generateV4Css(["text-fluid-base"], {
