@@ -15,8 +15,12 @@ const FALLBACK_RANGE = { minBreakpoint: 320, maxBreakpoint: 1280 };
 // parseArbitraryValue receives the post-Tailwind value: commas pass through
 // verbatim, and the legacy "_" separator arrives as a space. The blocks below use
 // spaces (the fallback path); a dedicated block covers the comma form.
-const parse = (value: string) =>
+// Most existing assertions only care about the base value (shorthand/2-anchor
+// forms never produce segments), so `parse` unwraps `.value` for them; a
+// dedicated "piecewise" block below asserts on `segments` directly.
+const parseFull = (value: string) =>
   parseArbitraryValue(value, "vw", FALLBACK_RANGE, BREAKPOINTS);
+const parse = (value: string) => parseFull(value)?.value ?? null;
 
 describe("parsePixels", () => {
   it("parses numbers with or without a px suffix", () => {
@@ -214,7 +218,7 @@ describe("parseArbitraryValue — length options", () => {
     expect(
       parseArbitraryValue("16,24", "vw", FALLBACK_RANGE, BREAKPOINTS, {
         lengthUnit: "px",
-      }),
+      })?.value,
     ).toBe("clamp(16px, 0.833333vw + 13.333333px, 24px)");
   });
 
@@ -222,15 +226,63 @@ describe("parseArbitraryValue — length options", () => {
     expect(
       parseArbitraryValue("16,24", "vw", FALLBACK_RANGE, BREAKPOINTS, {
         rootFontSize: 10,
-      }),
+      })?.value,
     ).toBe("clamp(1.6rem, 0.833333vw + 1.333333rem, 2.4rem)");
   });
 });
 
-describe("parseArbitraryValue — rejected forms (null)", () => {
-  it("3+ anchors are reserved (piecewise not implemented)", () => {
-    expect(parse("16@320 20@768 24@1280")).toBeNull();
+describe("parseArbitraryValue — piecewise (3+ anchors)", () => {
+  it("splits into a base value plus one segment per extra anchor", () => {
+    const result = parseFull("16@320,20@768,24@1280");
+    expect(result?.value).toBe(
+      "clamp(1rem, 0.892857vw + 0.821429rem, 1.25rem)",
+    );
+    expect(result?.segments).toEqual([
+      {
+        minBreakpoint: 768,
+        value: "clamp(1.25rem, 0.78125vw + 0.875rem, 1.5rem)",
+      },
+    ]);
   });
+
+  it("is order-independent — anchors are sorted by breakpoint first", () => {
+    expect(parseFull("24@1280,16@320,20@768")).toEqual(
+      parseFull("16@320,20@768,24@1280"),
+    );
+  });
+
+  it("resolves named breakpoints and picks vw automatically", () => {
+    const result = parseFull("16@sm,20@md,24@lg");
+    expect(result?.segments.map((s) => s.minBreakpoint)).toEqual([768]);
+  });
+
+  it("a leading unit token applies to every segment", () => {
+    const result = parseFull("cqw,16@320,20@768,24@1280");
+    expect(result?.value.includes("cqw")).toBe(true);
+    expect(result?.segments[0].value.includes("cqw")).toBe(true);
+  });
+
+  it("bound markers only open the true outer ends", () => {
+    const result = parseFull("<16@320,20@768,24@1280>");
+    expect(result?.value.startsWith("min(")).toBe(true); // floor dropped on the first pair
+    expect(result?.segments[0].value.startsWith("max(")).toBe(true); // ceiling dropped on the last pair only
+  });
+
+  it("four anchors produce two segments", () => {
+    const result = parseFull("16@320,20@640,24@960,28@1280");
+    expect(result?.segments.map((s) => s.minBreakpoint)).toEqual([640, 960]);
+  });
+
+  it("rejects a malformed anchor even among otherwise-valid ones", () => {
+    expect(parseFull("16@320,abc@768,24@1280")).toBeNull();
+  });
+
+  it("rejects duplicate/non-increasing breakpoints after sorting", () => {
+    expect(parseFull("16@320,20@320,24@1280")).toBeNull();
+  });
+});
+
+describe("parseArbitraryValue — rejected forms (null)", () => {
   it("mixing an anchor with a bare number", () => {
     expect(parse("16@320 24")).toBeNull();
   });

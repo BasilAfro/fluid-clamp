@@ -298,7 +298,53 @@ for container padding or fixed sibling elements. It's subtracted **directly**
 <p className="text-fluid-[16@320-16,24@1280-24]" />;
 ```
 
-> 3+ anchors (piecewise / non-linear ramps) are reserved for a future release.
+### Piecewise ramps — 3+ anchors
+
+Add more anchors to ramp through multiple slopes instead of a single clamp —
+handy for a type/spacing scale that should grow faster after a given
+breakpoint (e.g. a headline that barely grows on mobile, then accelerates from
+tablet up). Order doesn't matter; anchors are sorted by breakpoint internally:
+
+```tsx
+<h1 className="text-fluid-[24@390,28@640,42@768,48@1024]" />
+```
+
+This compiles to **one class** with a base `clamp()` plus a stacked
+`@media (min-width: …)` override per extra anchor — each pair of consecutive
+anchors gets its own two-point clamp, valid from its lower anchor's breakpoint
+up:
+
+```css
+.text-fluid-\[24\@390\2c 28\@640\2c 42\@768\2c 48\@1024\] {
+  font-size: clamp(24px, 1.6vw + 17.76px, 28px); /* 390 → 640 */
+}
+@media (min-width: 640px) {
+  .text-fluid-\[24\@390\2c 28\@640\2c 42\@768\2c 48\@1024\] {
+    font-size: clamp(28px, 10.9375vw - 42px, 42px); /* 640 → 768 */
+  }
+}
+@media (min-width: 768px) {
+  .text-fluid-\[24\@390\2c 28\@640\2c 42\@768\2c 48\@1024\] {
+    font-size: clamp(42px, 2.34375vw + 24px, 48px); /* 768 → 1024 */
+  }
+}
+```
+
+Works with named breakpoints, insets, the unit token, and every other
+`*-fluid-[...]` prefix (spacing, typography, border, composite) — it's the
+same anchor syntax, just with more than two anchors. Bound markers (`<`/`>`)
+still apply to the true outer ends only — `<` opens the floor of the first
+segment, `>` the ceiling of the last one; interior segments stay fully clamped
+since they're bounded by real anchors on both sides:
+
+```tsx
+<h1 className="text-fluid-[<24@390,28@640,42@768,48@1024>]" />
+```
+
+> Want a reusable named utility (`text-h1`, `text-display-1`, …) instead of
+> repeating the bracket value? Define it as your own `@utility` (v4) or
+> `@layer components` (v3) rule composed with `@apply`:
+> `@utility text-h1 { @apply text-fluid-[24@390,28@640,42@768,48@1024]; }`
 
 ### Breaking the bounds
 
