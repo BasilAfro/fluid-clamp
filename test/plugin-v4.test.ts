@@ -107,6 +107,20 @@ describe("Tailwind v4 (@plugin, CSS-first)", () => {
     expect(css).toContain("font-size: calc(0.833333vw + 0.833333rem)"); // open both
   });
 
+  it("a 3+ anchor value produces a piecewise ramp (base clamp + stacked @media overrides)", async () => {
+    const css = await generateV4Css([
+      "text-fluid-[16@320,20@768,24@1280]",
+      "px-fluid-[16@320,20@768,24@1280]",
+    ]);
+    // Single-declaration prefix (font-size).
+    expect(css).toContain("font-size: clamp(1rem, 0.892857vw + 0.821429rem, 1.25rem)");
+    // Multi-declaration prefix (padding-left + padding-right) also nests correctly.
+    expect(css).toContain("padding-left: clamp(1rem, 0.892857vw + 0.821429rem, 1.25rem)");
+    expect(css).toContain("padding-right: clamp(1rem, 0.892857vw + 0.821429rem, 1.25rem)");
+    expect(css).toContain("@media (min-width: 768px)");
+    expect(css).toContain("clamp(1.25rem, 0.78125vw + 0.875rem, 1.5rem)");
+  });
+
   it("an unknown breakpoint name in the options block throws a build-time error", async () => {
     await expect(
       generateV4Css(["text-fluid-base"], {

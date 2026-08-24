@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- New: **piecewise ramps** — arbitrary-value anchors are no longer capped at
+  two. `text-fluid-[24@390,28@640,42@768,48@1024]` (and every other
+  `*-fluid-[...]` prefix) now accepts 3+ anchors: each consecutive pair (sorted
+  by breakpoint) becomes its own two-point clamp, and every pair after the
+  first is scoped behind a `@media (min-width: …)` block matching its lower
+  anchor — one class compiles to a base clamp plus stacked media overrides,
+  instead of a single two-point `clamp()`. Bound markers (`<`/`>`) now only
+  open the true outer ends (the first segment's floor, the last segment's
+  ceiling); interior segments stay fully clamped. This fills in the "3+
+  anchors are reserved for a future release" note from 2.0.0.
 - Added a `@basilafro/fluid-clamp/tw-merge` subpath export — a ready-made
   `tailwind-merge`/`clsx` integration (`cn()`, `createFluidTwMerge`,
   `fluidClassGroups`) so every fluid-clamp utility resolves to the correct

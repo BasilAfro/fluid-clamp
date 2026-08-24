@@ -20,12 +20,13 @@ import { fluidClamp, isFluidUnit, FLUID_UNITS, FluidUnit, LengthUnit } from "./f
 import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults.js";
 import {
   BreakpointConfig,
+  FluidCssValue,
   ThemeFunction,
   parseArbitraryValue,
   resolveBreakpoints,
   resolveBreakpointConfig,
 } from "./parse.js";
-import { CssApi, COMPOSITE_PROPS } from "./composite.js";
+import { CssApi, Declarations, COMPOSITE_PROPS } from "./composite.js";
 
 export type { BreakpointConfig } from "./parse.js";
 
@@ -304,6 +305,34 @@ const ARBITRARY_ONLY_PROPS = {
   ...RADIUS_PROPS,
 };
 
+// ─── Piecewise declaration builder ────────────────────────────────────────────
+// Translates a parsed fluid value into what a `matchUtilities` callback
+// returns. A shorthand/2-anchor value is just the base declarations; a 3+
+// anchor value additionally nests a `@media (min-width: …)` block per extra
+// segment, so a single class compiles to one selector with stacked overrides
+// instead of a single clamp() — the same shape as manually chaining media
+// queries, but generated from one arbitrary-value bracket.
+
+// Nested-at-rule-friendly declaration shape (matches Tailwind's own
+// CSSRuleObject structurally — that type isn't exported, so this is a minimal
+// local stand-in just for the media-query nesting this helper introduces).
+interface NestedDeclarations {
+  [key: string]: string | NestedDeclarations;
+}
+
+function buildDeclarations(
+  parsed: FluidCssValue,
+  toDeclarations: (clampValue: string) => Declarations,
+): NestedDeclarations {
+  const declarations: NestedDeclarations = toDeclarations(parsed.value);
+  for (const segment of parsed.segments) {
+    declarations[`@media (min-width: ${segment.minBreakpoint}px)`] = toDeclarations(
+      segment.value,
+    );
+  }
+  return declarations;
+}
+
 // ─── Plugin handler ───────────────────────────────────────────────────────────
 // The actual plugin body, shared by `createFluidPlugin` (v3 / JS config) and the
 // default export (v4 CSS-first `@plugin`). Returns the function that Tailwind
@@ -432,8 +461,8 @@ function createPluginHandler(
     matchUtilities(
       {
         "text-fluid": (value) => {
-          const clampValue = textClamp(value);
-          return clampValue ? { fontSize: clampValue } : null;
+          const parsed = textClamp(value);
+          return parsed ? buildDeclarations(parsed, (v) => ({ fontSize: v })) : null;
         },
       },
       { type: "any" },
@@ -444,8 +473,8 @@ function createPluginHandler(
         Object.entries(SPACE_PROPS).map(([prefix, toDeclarations]) => [
           `${prefix}-fluid`,
           (value: string) => {
-            const clampValue = spaceClamp(value);
-            return clampValue ? toDeclarations(clampValue) : null;
+            const parsed = spaceClamp(value);
+            return parsed ? buildDeclarations(parsed, toDeclarations) : null;
           },
         ]),
       ),
@@ -462,8 +491,8 @@ function createPluginHandler(
         Object.entries(ARBITRARY_ONLY_PROPS).map(([prefix, toDeclarations]) => [
           `${prefix}-fluid`,
           (value: string) => {
-            const clampValue = spaceClamp(value);
-            return clampValue ? toDeclarations(clampValue) : null;
+            const parsed = spaceClamp(value);
+            return parsed ? buildDeclarations(parsed, toDeclarations) : null;
           },
         ]),
       ),
@@ -480,8 +509,8 @@ function createPluginHandler(
           Object.entries(MISC_PROPS).map(([prefix, toDeclarations]) => [
             `${prefix}-fluid`,
             (value: string) => {
-              const clampValue = spaceClamp(value);
-              return clampValue ? toDeclarations(clampValue) : null;
+              const parsed = spaceClamp(value);
+              return parsed ? buildDeclarations(parsed, toDeclarations) : null;
             },
           ]),
         ),
@@ -498,8 +527,10 @@ function createPluginHandler(
         Object.entries(COMPOSITE_PROPS).map(([prefix, toDeclarations]) => [
           `${prefix}-fluid`,
           (value: string) => {
-            const clampValue = spaceClamp(value);
-            return clampValue ? toDeclarations(cssApi, clampValue) : null;
+            const parsed = spaceClamp(value);
+            return parsed
+              ? buildDeclarations(parsed, (v) => toDeclarations(cssApi, v))
+              : null;
           },
         ]),
       ),

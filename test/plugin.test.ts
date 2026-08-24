@@ -63,9 +63,11 @@ describe("createFluidPlugin (integration)", () => {
     ).rejects.toThrow(/unknown breakpoint name "nope"/);
   });
 
-  it("reserved 3-anchor value produces no class", async () => {
+  it("a 3-anchor value compiles to a base clamp plus a stacked @media override", async () => {
     const { css } = await generateCss("text-fluid-[16@320,20@768,24@1280]");
-    expect(css).not.toContain("clamp(");
+    expect(css).toContain("clamp(1rem, 0.892857vw + 0.821429rem, 1.25rem)");
+    expect(css).toContain("@media (min-width: 768px)");
+    expect(css).toContain("clamp(1.25rem, 0.78125vw + 0.875rem, 1.5rem)");
   });
 
   it("applies a per-anchor inset in an arbitrary value", async () => {
