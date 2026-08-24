@@ -29,6 +29,23 @@ function generateCss(
   ]).process("@tailwind utilities;", { from: undefined });
 }
 
+// `addBase` output only appears in the "base" layer, so `fluidVars` tests need
+// `@tailwind base;` in the processed stylesheet as well.
+function generateCssWithBase(
+  content: string,
+  config: Parameters<typeof createFluidPlugin>[0] = {},
+) {
+  uniqueId += 1;
+  return postcss([
+    tailwind({
+      content: [{ raw: `uniq${uniqueId} ${content}`, extension: "html" }],
+      corePlugins: { preflight: false },
+      theme: { screens: SCREENS },
+      plugins: [createFluidPlugin(config)],
+    }),
+  ]).process("@tailwind base; @tailwind utilities;", { from: undefined });
+}
+
 describe("createFluidPlugin (integration)", () => {
   it("emits a named-breakpoint anchor class with auto-vw", async () => {
     const { css } = await generateCss("text-fluid-[16@sm,24@lg]", {
@@ -208,5 +225,47 @@ describe("createFluidPlugin (integration)", () => {
     expect(css).toContain("--tw-translate-x: clamp(0.5rem, 0.833333vw + 0.333333rem, 1rem)");
     expect(css).toContain("translate: var(--tw-translate-x) var(--tw-translate-y)");
     expect(css).not.toContain("transform:");
+  });
+
+  describe("fluidVars", () => {
+    it("emits a :root override for a shorthand value (no media)", async () => {
+      const { css } = await generateCssWithBase("text-fluid-base", {
+        fluidVars: { "space-token": "16,24" },
+      });
+      expect(css).toContain(":root");
+      expect(css).toContain(
+        "--space-token: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)",
+      );
+      expect(css).not.toContain("@media");
+    });
+
+    it("emits a base :root declaration plus stacked @media overrides for 3+ anchors", async () => {
+      const { css } = await generateCssWithBase("text-fluid-base", {
+        fluidVars: { "text-xs": "10@320,11@768,12@1280" },
+      });
+      expect(css).toContain(
+        "--text-xs: clamp(0.625rem, 0.223214vw + 0.580357rem, 0.6875rem)",
+      );
+      expect(css).toContain("@media (min-width: 768px)");
+      expect(css).toContain(
+        "--text-xs: clamp(0.6875rem, 0.195313vw + 0.59375rem, 0.75rem)",
+      );
+    });
+
+    it("resolves named breakpoints and the textUnit/textBreakpointRange config", async () => {
+      const { css } = await generateCssWithBase("text-fluid-base", {
+        textUnit: "cqw",
+        fluidVars: { "text-xs": "10@sm,12@lg" },
+      });
+      expect(css).toContain("cqw");
+    });
+
+    it("an unparsable fluidVars value throws a build-time error", async () => {
+      await expect(
+        generateCssWithBase("text-fluid-base", {
+          fluidVars: { "text-xs": "not-a-value" },
+        }),
+      ).rejects.toThrow(/invalid fluidVars\["text-xs"\]/);
+    });
   });
 });

@@ -122,6 +122,34 @@ export interface FluidPluginConfig {
   breakpoints?: Record<string, number>;
 
   /**
+   * Fluid CSS custom properties, emitted as `:root` overrides — handy for
+   * overriding Tailwind's own scale variables (`--text-xs`, etc.) or any
+   * global design token across breakpoints, instead of (or alongside) using
+   * `text-fluid-*`/`*-fluid-*` utility classes directly.
+   *
+   * Each key becomes `--${key}`; each value is the exact same arbitrary-value
+   * anchor syntax as `text-fluid-[...]` (minus the brackets) — shorthand,
+   * anchors, named breakpoints, insets, the unit token, and bound markers all
+   * work the same way. 3+ anchors produce a piecewise ramp: the value below
+   * the first extra anchor, then a `@media (min-width: …)` override per
+   * segment after that.
+   *
+   * Resolved against the same `textUnit`/`textBreakpointRange` as
+   * `text-fluid-*` (i.e. shorthand values like `"10,12"` scale across
+   * `textBreakpointRange`, not `spaceBreakpointRange`).
+   *
+   * @example
+   * fluidVars: {
+   *   "text-xs": "10@390,11@768,12@1280",
+   *   "text-sm": "11@390,12@768,14@1280",
+   * }
+   * // → :root { --text-xs: clamp(...); } plus stacked @media overrides
+   *
+   * @default {}
+   */
+  fluidVars?: Record<string, string>;
+
+  /**
    * Which Tailwind major version's internal formula to use for the
    * *composite* utilities (`translate-x/y`, `blur`, `backdrop-blur`, `ring`,
    * `ring-offset`, `space-x/y`, `divide-x/y`) — the ones that compose into a
@@ -372,7 +400,7 @@ function createPluginHandler(
     rootFontSize: resolved.rootFontSize,
   };
 
-  return function ({ addUtilities, matchUtilities, theme }) {
+  return function ({ addUtilities, matchUtilities, addBase, theme }) {
     // Named breakpoints: Tailwind's theme screens + plugin overrides.
     const breakpointMap = resolveBreakpoints(
       theme as ThemeFunction,
@@ -536,6 +564,35 @@ function createPluginHandler(
       ),
       { type: "any" },
     );
+
+    // ── Fluid CSS variables (:root overrides, optionally piecewise) ─────────
+    // Reuses the exact same anchor grammar as text-fluid-[...] — a config
+    // value is parsed exactly like an arbitrary utility value, and its base
+    // value/segments become a :root declaration plus one @media override per
+    // extra anchor. Config errors are loud: an unparsable value throws at
+    // build time rather than silently emitting no override.
+
+    if (config.fluidVars) {
+      for (const [name, rawValue] of Object.entries(config.fluidVars)) {
+        const parsed = textClamp(rawValue);
+        if (!parsed) {
+          throw new Error(
+            `fluid-clamp: invalid fluidVars["${name}"] value "${rawValue}".`,
+          );
+        }
+
+        const varName = `--${name}`;
+        addBase({ ":root": { [varName]: parsed.value } });
+
+        for (const segment of parsed.segments) {
+          addBase({
+            [`@media (min-width: ${segment.minBreakpoint}px)`]: {
+              ":root": { [varName]: segment.value },
+            },
+          });
+        }
+      }
+    }
   };
 }
 
