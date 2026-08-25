@@ -204,7 +204,7 @@ const PLUGIN_DEFAULTS: ResolvedConfig = {
 // arbitrary-value matchers (`p-fluid-[…]`) are generated from this map, so the
 // prefix → property mapping lives in exactly one place.
 
-const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   p: (clampValue) => ({ padding: clampValue }),
   px: (clampValue) => ({ paddingLeft: clampValue, paddingRight: clampValue }),
   py: (clampValue) => ({ paddingTop: clampValue, paddingBottom: clampValue }),
@@ -274,13 +274,13 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
 // support via `${prefix}-fluid-[…]`, bound to the same `spaceClamp` resolver
 // as `SPACE_PROPS` (same breakpoint range/unit as spacing).
 
-const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   leading: (clampValue) => ({ lineHeight: clampValue }),
   tracking: (clampValue) => ({ letterSpacing: clampValue }),
   indent: (clampValue) => ({ textIndent: clampValue }),
 };
 
-const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   border: (clampValue) => ({ borderWidth: clampValue }),
   "border-t": (clampValue) => ({ borderTopWidth: clampValue }),
   "border-r": (clampValue) => ({ borderRightWidth: clampValue }),
@@ -290,7 +290,7 @@ const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string
   "outline-offset": (clampValue) => ({ outlineOffset: clampValue }),
 };
 
-const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   rounded: (clampValue) => ({ borderRadius: clampValue }),
   "rounded-t": (clampValue) => ({
     borderTopLeftRadius: clampValue,
@@ -320,14 +320,14 @@ const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string
 // itself doesn't have. Tailwind v4 does ship a native arbitrary-value-only
 // `perspective-[…]` utility, so this is registered for v4 only — see the
 // `cssApi === "v4"` guard around its `matchUtilities` call below.
-const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   perspective: (clampValue) => ({ perspective: clampValue }),
 };
 
 // Arbitrary-only tables, merged for a single matchUtilities registration loop.
 // MISC_PROPS is intentionally excluded — it's registered separately, gated to
 // v4 only (see above).
-const ARBITRARY_ONLY_PROPS = {
+export const ARBITRARY_ONLY_PROPS = {
   ...TYPOGRAPHY_PROPS,
   ...BORDER_PROPS,
   ...RADIUS_PROPS,
