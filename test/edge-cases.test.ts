@@ -70,6 +70,76 @@ describe("piecewise ramps combined with composite utilities", () => {
   });
 });
 
+describe("piecewise segment boundaries match the slope's reference frame", () => {
+  // A cqw/cqh slope measures the nearest query container; gating its segments
+  // on viewport width switches segments on one axis while interpolating along
+  // another. A 400px sidebar in a 1280px viewport would take the second
+  // segment's slope while its own container is still in the first's range.
+  it("uses @container for a cqw ramp", async () => {
+    const css = await compile("p-fluid-[8@320,12@768,16@1280]", { unit: "cqw" });
+    expect(css).toContain("@container (min-width: 768px)");
+    expect(css).not.toContain("@media (min-width: 768px)");
+  });
+
+  it("uses @container for a cqh ramp", async () => {
+    const css = await compile("p-fluid-[8@320,12@768,16@1280]", { unit: "cqh" });
+    expect(css).toContain("@container (min-width: 768px)");
+  });
+
+  it("uses @container when the unit comes from an inline token", async () => {
+    const css = await compile("p-fluid-[cqw,8@320,12@768,16@1280]");
+    expect(css).toContain("@container (min-width: 768px)");
+  });
+
+  // Guard against over-correcting: vw ramps must keep @media.
+  it("keeps @media for a vw ramp", async () => {
+    const css = await compile("p-fluid-[8@320,12@768,16@1280]", { unit: "vw" });
+    expect(css).toContain("@media (min-width: 768px)");
+    expect(css).not.toContain("@container");
+  });
+
+  // A named breakpoint forces vw regardless of config, because screens are
+  // viewport widths — so the boundary must stay @media even under unit: cqw.
+  it("keeps @media when named breakpoints force vw, even under unit: cqw", async () => {
+    const css = await compile("p-fluid-[8@sm,12@md,16@lg]", { unit: "cqw" });
+    expect(css).toContain("@media (min-width: 768px)");
+    expect(css).not.toContain("@container");
+  });
+
+  it("applies the same rule to composite utilities", async () => {
+    const css = await compile("space-y-fluid-[8@320,12@768,16@1280]", { unit: "cqw" });
+    expect(css).toContain("@container (min-width: 768px)");
+    expect(css).not.toContain("@media");
+  });
+});
+
+describe("fluidVars rejects unsatisfiable container ramps", () => {
+  it("throws for a piecewise container-unit value (:root is never in a container)", async () => {
+    await expect(
+      compile("text-fluid-base", {
+        textUnit: "cqw",
+        fluidVars: { "token-cq": "10@320,11@768,12@1280" },
+      }),
+    ).rejects.toThrow(/fluidVars\["token-cq"\] uses cqw with 3\+ anchors/);
+  });
+
+  it("still allows a two-anchor container-unit value (no boundary needed)", async () => {
+    const css = await compile("text-fluid-base", {
+      textUnit: "cqw",
+      fluidVars: { "token-cq": "10@320,12@1280" },
+    });
+    expect(css).toContain("--token-cq: clamp(");
+    expect(css).toContain("cqw");
+  });
+
+  it("still allows a piecewise vw value", async () => {
+    const css = await compile("text-fluid-base", {
+      fluidVars: { "token-vw": "10@320,11@768,12@1280" },
+    });
+    expect(css).toContain("@media (min-width: 768px)");
+  });
+});
+
 describe("fluidVars supports the full arbitrary-value grammar", () => {
   // The README promises "shorthand, anchors, named breakpoints, insets, the
   // unit token, and bound markers all work identically". Shorthand, anchors
@@ -134,15 +204,34 @@ describe("option validation rejects values TypeScript can't catch", () => {
 });
 
 describe("malformed arbitrary values produce no class rather than broken CSS", () => {
+  // The class must produce no *declaration*. On v3 an empty rule may still be
+  // emitted for the candidate — that's the deliberate cost of returning `{}`
+  // rather than `null`, which is what keeps a malformed value from crashing the
+  // v4 build (v4 calls Object.entries on the callback's return value).
   it("drops the utility and leaves valid siblings intact", async () => {
     const css = await compile("w-fluid-[16] p-fluid-4", {});
     expect(css).toContain(".p-fluid-4"); // control: the build really ran
-    expect(css).not.toContain("w-fluid");
+    expect(css).not.toContain("width: clamp(");
   });
 
   it("drops an anchor value whose breakpoints collide", async () => {
     const css = await compile("w-fluid-[16@320,24@320] p-fluid-4", {});
     expect(css).toContain(".p-fluid-4");
-    expect(css).not.toContain("w-fluid");
+    expect(css).not.toContain("width: clamp(");
+  });
+
+  it("does not crash the v4 build on a malformed value", async () => {
+    // Regression: the matchers used to return `null`, which v3 reads as "no
+    // utility" but v4 feeds straight into Object.entries — turning a typo like
+    // `w-fluid-[16]` into `TypeError: Cannot convert undefined or null to
+    // object` and killing the whole build.
+    const { compile: compileV4 } = await import("tailwindcss4");
+    const fluidDefault = (await import("../src/plugin")).default;
+    const compiled = await compileV4(`@plugin "x"; @tailwind utilities;`, {
+      loadModule: async () => ({ module: fluidDefault, base: "." }),
+    });
+
+    expect(() => compiled.build(["w-fluid-[16]", "p-fluid-4"])).not.toThrow();
+    expect(compiled.build(["w-fluid-[16]", "p-fluid-4"])).not.toContain("width: clamp(");
   });
 });

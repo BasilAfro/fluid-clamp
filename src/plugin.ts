@@ -348,13 +348,41 @@ interface NestedDeclarations {
   [key: string]: string | NestedDeclarations;
 }
 
+// A segment boundary has to be measured against whatever the slope is measured
+// against. A `vw` slope tracks the viewport, so its segments gate on `@media`;
+// a `cqw`/`cqh` slope tracks the nearest query container, so gating those on
+// viewport width would switch segments on one axis while interpolating along
+// another — e.g. a 400px sidebar in a 1280px viewport would jump to the second
+// segment's slope while its own container is still inside the first segment's
+// range. Both Tailwind v3 and v4 accept a nested `@container` key here.
+export function segmentAtRule(unit: FluidUnit, minBreakpoint: number): string {
+  const isContainerUnit = unit === "cqw" || unit === "cqh";
+  return `${isContainerUnit ? "@container" : "@media"} (min-width: ${minBreakpoint}px)`;
+}
+
+// What a matcher returns when the value doesn't parse.
+//
+// v3 treats `null` as "no utility" and emits nothing. v4 does NOT: its compat
+// layer calls `Object.entries()` on whatever the callback returns, so `null`
+// throws `TypeError: Cannot convert undefined or null to object` and takes the
+// whole build down — from a plain typo like `w-fluid-[16]` (one size instead of
+// two), with an error naming neither the class nor this plugin.
+//
+// An empty object is safe on both. It costs a stray empty rule on v3
+// (`.w-fluid-\[16\] {}`), which only ever appears for a value that was already
+// broken, and that is a much better failure than a dead build. Deliberately not
+// keyed off `cssApi`: that option selects *composition formulas*, and a user can
+// legitimately run `cssApi: "v3"` on the v4 engine (the documented compat-mode
+// case), where returning `null` would still crash.
+const NO_UTILITY: NestedDeclarations = {};
+
 function buildDeclarations(
   parsed: FluidCssValue,
   toDeclarations: (clampValue: string) => Declarations,
 ): NestedDeclarations {
   const declarations: NestedDeclarations = toDeclarations(parsed.value);
   for (const segment of parsed.segments) {
-    declarations[`@media (min-width: ${segment.minBreakpoint}px)`] = toDeclarations(
+    declarations[segmentAtRule(parsed.unit, segment.minBreakpoint)] = toDeclarations(
       segment.value,
     );
   }
@@ -490,7 +518,7 @@ function createPluginHandler(
       {
         "text-fluid": (value) => {
           const parsed = textClamp(value);
-          return parsed ? buildDeclarations(parsed, (v) => ({ fontSize: v })) : null;
+          return parsed ? buildDeclarations(parsed, (v) => ({ fontSize: v })) : NO_UTILITY;
         },
       },
       { type: "any" },
@@ -502,7 +530,7 @@ function createPluginHandler(
           `${prefix}-fluid`,
           (value: string) => {
             const parsed = spaceClamp(value);
-            return parsed ? buildDeclarations(parsed, toDeclarations) : null;
+            return parsed ? buildDeclarations(parsed, toDeclarations) : NO_UTILITY;
           },
         ]),
       ),
@@ -520,7 +548,7 @@ function createPluginHandler(
           `${prefix}-fluid`,
           (value: string) => {
             const parsed = spaceClamp(value);
-            return parsed ? buildDeclarations(parsed, toDeclarations) : null;
+            return parsed ? buildDeclarations(parsed, toDeclarations) : NO_UTILITY;
           },
         ]),
       ),
@@ -538,7 +566,7 @@ function createPluginHandler(
             `${prefix}-fluid`,
             (value: string) => {
               const parsed = spaceClamp(value);
-              return parsed ? buildDeclarations(parsed, toDeclarations) : null;
+              return parsed ? buildDeclarations(parsed, toDeclarations) : NO_UTILITY;
             },
           ]),
         ),
@@ -558,7 +586,7 @@ function createPluginHandler(
             const parsed = spaceClamp(value);
             return parsed
               ? buildDeclarations(parsed, (v) => toDeclarations(cssApi, v))
-              : null;
+              : NO_UTILITY;
           },
         ]),
       ),
@@ -581,12 +609,31 @@ function createPluginHandler(
           );
         }
 
+        // A piecewise ramp needs a segment boundary, and for a container unit
+        // that boundary is `@container` — which can never match on `:root`,
+        // since the root element is not inside a query container. Such a value
+        // is unsatisfiable rather than merely awkward, so it's a loud config
+        // error like every other bad `fluidVars` input. (A non-piecewise
+        // container-unit var is fine: it emits one clamp with no boundary, and
+        // the `cq*` slope resolves against whatever container the *consuming*
+        // element sits in.)
+        if (
+          parsed.segments.length > 0 &&
+          (parsed.unit === "cqw" || parsed.unit === "cqh")
+        ) {
+          throw new Error(
+            `fluid-clamp: fluidVars["${name}"] uses ${parsed.unit} with 3+ anchors. ` +
+              `A piecewise ramp needs a @container boundary, which can never match ` +
+              `on :root. Use two anchors, a vw-based value, or a utility class instead.`,
+          );
+        }
+
         const varName = `--${name}`;
         addBase({ ":root": { [varName]: parsed.value } });
 
         for (const segment of parsed.segments) {
           addBase({
-            [`@media (min-width: ${segment.minBreakpoint}px)`]: {
+            [segmentAtRule(parsed.unit, segment.minBreakpoint)]: {
               ":root": { [varName]: segment.value },
             },
           });
