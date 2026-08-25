@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- Fix: **a malformed arbitrary value crashed the Tailwind v4 build.** Every
+  matcher returned `null` for a value it couldn't parse, which v3 reads as "no
+  utility" — but v4 passes the return value straight to `Object.entries()`, so
+  `null` threw `TypeError: Cannot convert undefined or null to object` and took
+  the whole build down, naming neither the offending class nor this plugin. A
+  plain typo like `w-fluid-[16]` (one size where two are required) was enough.
+  Matchers now return an empty object, which both engines accept. Not keyed off
+  `cssApi`: that option selects composition formulas, and `cssApi: "v3"` on the
+  v4 engine is a documented setup where `null` would still have crashed.
+- Fix: **piecewise ramps gated container-relative slopes on viewport width.**
+  A 3+ anchor value always emitted `@media (min-width: …)` segment boundaries,
+  even when the slope used `cqw`/`cqh`. A 400px sidebar inside a 1280px viewport
+  therefore picked up the second segment's slope while its own container was
+  still inside the first segment's range. Container units now emit
+  `@container (min-width: …)`; `vw` keeps `@media`, and a named breakpoint still
+  forces `vw` (screens are viewport widths) so those ramps are unaffected.
+  A piecewise `fluidVars` value resolving to a container unit is now a loud
+  build-time error — `:root` is never inside a container, so it can't be
+  satisfied either way.
+- New: **negative static utilities** — `-mt-fluid-4`, `-inset-fluid-2`, and so
+  on, for exactly the prefixes Tailwind itself makes negatable (verified against
+  compiled native output, not assumed). Previously `-mt-fluid-4` matched no rule
+  at all. Arbitrary values take their signs inside the bracket
+  (`mt-fluid-[-8,-16]`, which already worked); the `-` prefix can't work there
+  because Tailwind rejects negative comma-bearing candidates before the plugin
+  sees them. Now documented.
+
 - Fix: **`fluidVars` was silently dropped by the default export.** The v4
   CSS-first / default export normalizes its options before handing them to the
   shared plugin body, and that normalization rebuilt the config key-by-key —
