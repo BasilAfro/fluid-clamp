@@ -2,16 +2,28 @@
   "name": "@basilafro/fluid-clamp",
   "version": "2.1.0",
   "description": "Tailwind CSS plugin for fluid clamp utilities using cqw, cqh, and vw",
+  "author": "BasilAfro",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/BasilAfro/fluid-clamp.git"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "homepage": "https://github.com/BasilAfro/fluid-clamp#readme",
+  "bugs": {
+    "url": "https://github.com/BasilAfro/fluid-clamp/issues"
+  },
+  "main": "dist/cjs/index.js",
+  "types": "dist/types/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./tw-merge": {
+      "types": "./dist/types/tw-merge.d.ts",
+      "import": "./dist/esm/tw-merge.js",
+      "require": "./dist/cjs/tw-merge.js"
     },
     "./package.json": "./package.json"
   },
@@ -20,19 +32,35 @@
     "README.md",
     "CHANGELOG.md"
   ],
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@11.23.0",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json && node scripts/stamp-dist-package-json.mjs",
+    "dev": "tsc -p tsconfig.esm.json --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "pnpm build && pnpm test"
   },
   "peerDependencies": {
-    "tailwindcss": ">=3.0.0"
+    "tailwindcss": ">=3.4.0 <5.0.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0 || ^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "clsx": {
+      "optional": true
+    },
+    "tailwind-merge": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@tailwindcss/oxide": "^4.3.2",
+    "clsx": "^2.1.1",
     "postcss": "^8.4.0",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^3.4.0",
     "tailwindcss4": "npm:tailwindcss@^4.3.2",
     "typescript": "^5.0.0",

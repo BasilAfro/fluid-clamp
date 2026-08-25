@@ -3,3 +3,7 @@ node_modules/
 .DS_Store
 coverage/
 dist/
+
+# Tarballs left behind by `npm pack` / `pnpm pack` when inspecting what
+# actually ships before a release.
+*.tgz

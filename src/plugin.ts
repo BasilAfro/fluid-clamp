@@ -15,18 +15,20 @@
  *   plugins: [fluidPlugin]
  */
 
-import plugin from "tailwindcss/plugin";
-import { fluidClamp, isFluidUnit, FLUID_UNITS, FluidUnit, LengthUnit } from "./fluid";
-import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults";
+import plugin from "tailwindcss/plugin.js";
+import { fluidClamp, isFluidUnit, FLUID_UNITS, FluidUnit, LengthUnit } from "./fluid.js";
+import { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults.js";
 import {
   BreakpointConfig,
+  FluidCssValue,
   ThemeFunction,
   parseArbitraryValue,
   resolveBreakpoints,
   resolveBreakpointConfig,
-} from "./parse";
+} from "./parse.js";
+import { CssApi, Declarations, COMPOSITE_PROPS } from "./composite.js";
 
-export type { BreakpointConfig } from "./parse";
+export type { BreakpointConfig } from "./parse.js";
 
 // ─── Plugin config ────────────────────────────────────────────────────────────
 
@@ -118,6 +120,55 @@ export interface FluidPluginConfig {
    * @default {}
    */
   breakpoints?: Record<string, number>;
+
+  /**
+   * Fluid CSS custom properties, emitted as `:root` overrides — handy for
+   * overriding Tailwind's own scale variables (`--text-xs`, etc.) or any
+   * global design token across breakpoints, instead of (or alongside) using
+   * `text-fluid-*`/`*-fluid-*` utility classes directly.
+   *
+   * Each key becomes `--${key}`; each value is the exact same arbitrary-value
+   * anchor syntax as `text-fluid-[...]` (minus the brackets) — shorthand,
+   * anchors, named breakpoints, insets, the unit token, and bound markers all
+   * work the same way. 3+ anchors produce a piecewise ramp: the value below
+   * the first extra anchor, then a `@media (min-width: …)` override per
+   * segment after that.
+   *
+   * Resolved against the same `textUnit`/`textBreakpointRange` as
+   * `text-fluid-*` (i.e. shorthand values like `"10,12"` scale across
+   * `textBreakpointRange`, not `spaceBreakpointRange`).
+   *
+   * @example
+   * fluidVars: {
+   *   "text-xs": "10@390,11@768,12@1280",
+   *   "text-sm": "11@390,12@768,14@1280",
+   * }
+   * // → :root { --text-xs: clamp(...); } plus stacked @media overrides
+   *
+   * @default {}
+   */
+  fluidVars?: Record<string, string>;
+
+  /**
+   * Which Tailwind major version's internal formula to use for the
+   * *composite* utilities (`translate-x/y`, `blur`, `backdrop-blur`, `ring`,
+   * `ring-offset`, `space-x/y`, `divide-x/y`) — the ones that compose into a
+   * shared property (`transform`/`translate`, `filter`, `box-shadow`) or a
+   * child selector instead of setting a plain CSS property directly. v3 and
+   * v4 compose these differently, so picking the wrong one means the fluid
+   * utility won't stack correctly with Tailwind's own `rotate-*`/`scale-*`,
+   * other filter utilities, `ring-color`, etc. on the same element.
+   *
+   * Defaults to `"v3"` from `createFluidPlugin` and `"v4"` from the default
+   * `@plugin`/CSS-first export — the choice that matches each entry point's
+   * usual Tailwind version. Override this explicitly if that assumption
+   * doesn't hold for your setup, e.g. a Tailwind v4 project that still runs
+   * plugins through v4's legacy JS-config compat mode (where other utilities
+   * may still compose the v3 way) — pass `cssApi: "v3"` to `createFluidPlugin`
+   * in that case, or vice versa.
+   * @default "v3" from `createFluidPlugin`, "v4" from the default export
+   */
+  cssApi?: CssApi;
 }
 
 // ─── Resolved config (after applying defaults) ────────────────────────────────
@@ -153,7 +204,7 @@ const PLUGIN_DEFAULTS: ResolvedConfig = {
 // arbitrary-value matchers (`p-fluid-[…]`) are generated from this map, so the
 // prefix → property mapping lives in exactly one place.
 
-const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   p: (clampValue) => ({ padding: clampValue }),
   px: (clampValue) => ({ paddingLeft: clampValue, paddingRight: clampValue }),
   py: (clampValue) => ({ paddingTop: clampValue, paddingBottom: clampValue }),
@@ -173,7 +224,189 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
   "gap-y": (clampValue) => ({ rowGap: clampValue }),
   w: (clampValue) => ({ width: clampValue }),
   h: (clampValue) => ({ height: clampValue }),
+  "min-w": (clampValue) => ({ minWidth: clampValue }),
+  "max-w": (clampValue) => ({ maxWidth: clampValue }),
+  "min-h": (clampValue) => ({ minHeight: clampValue }),
+  "max-h": (clampValue) => ({ maxHeight: clampValue }),
+  size: (clampValue) => ({ width: clampValue, height: clampValue }),
+  top: (clampValue) => ({ top: clampValue }),
+  right: (clampValue) => ({ right: clampValue }),
+  bottom: (clampValue) => ({ bottom: clampValue }),
+  left: (clampValue) => ({ left: clampValue }),
+  inset: (clampValue) => ({ inset: clampValue }),
+  "inset-x": (clampValue) => ({ left: clampValue, right: clampValue }),
+  "inset-y": (clampValue) => ({ top: clampValue, bottom: clampValue }),
+  start: (clampValue) => ({ insetInlineStart: clampValue }),
+  end: (clampValue) => ({ insetInlineEnd: clampValue }),
+  basis: (clampValue) => ({ flexBasis: clampValue }),
+  "scroll-m": (clampValue) => ({ scrollMargin: clampValue }),
+  "scroll-mx": (clampValue) => ({
+    scrollMarginLeft: clampValue,
+    scrollMarginRight: clampValue,
+  }),
+  "scroll-my": (clampValue) => ({
+    scrollMarginTop: clampValue,
+    scrollMarginBottom: clampValue,
+  }),
+  "scroll-mt": (clampValue) => ({ scrollMarginTop: clampValue }),
+  "scroll-mr": (clampValue) => ({ scrollMarginRight: clampValue }),
+  "scroll-mb": (clampValue) => ({ scrollMarginBottom: clampValue }),
+  "scroll-ml": (clampValue) => ({ scrollMarginLeft: clampValue }),
+  "scroll-p": (clampValue) => ({ scrollPadding: clampValue }),
+  "scroll-px": (clampValue) => ({
+    scrollPaddingLeft: clampValue,
+    scrollPaddingRight: clampValue,
+  }),
+  "scroll-py": (clampValue) => ({
+    scrollPaddingTop: clampValue,
+    scrollPaddingBottom: clampValue,
+  }),
+  "scroll-pt": (clampValue) => ({ scrollPaddingTop: clampValue }),
+  "scroll-pr": (clampValue) => ({ scrollPaddingRight: clampValue }),
+  "scroll-pb": (clampValue) => ({ scrollPaddingBottom: clampValue }),
+  "scroll-pl": (clampValue) => ({ scrollPaddingLeft: clampValue }),
 };
+
+// Prefixes that also get a negative static utility (`-mt-fluid-4`). This is
+// exactly the set Tailwind itself makes negatable — margins, insets and
+// scroll-margins, but not padding, gaps, sizing or scroll-padding, where a
+// negative length is meaningless. Verified against compiled v3 output rather
+// than assumed; `test/registration.test.ts` re-checks it against the native
+// utilities so a Tailwind change can't silently desync it.
+//
+// Negatives exist only for the static scale. Tailwind rejects a negative
+// arbitrary candidate whose value contains a comma *before* the plugin's
+// matcher ever sees it, so `-mt-fluid-[8,16]` cannot be made to work — the
+// bracket grammar is comma-based. Write the signs inside the bracket instead:
+// `mt-fluid-[-8,-16]`, which has always worked.
+const NEGATABLE_PREFIXES = new Set([
+  "m", "mx", "my", "mt", "mr", "mb", "ml",
+  "top", "right", "bottom", "left",
+  "inset", "inset-x", "inset-y", "start", "end",
+  "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
+]);
+
+// ─── Arbitrary-only prefixes ───────────────────────────────────────────────────
+// These prefixes don't get a static default scale (v1 decision — their px
+// ranges differ too much from the space scale to reuse it, and inventing a
+// curated scale per category is deferred). They still get full arbitrary-value
+// support via `${prefix}-fluid-[…]`, bound to the same `spaceClamp` resolver
+// as `SPACE_PROPS` (same breakpoint range/unit as spacing).
+
+export const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  leading: (clampValue) => ({ lineHeight: clampValue }),
+  tracking: (clampValue) => ({ letterSpacing: clampValue }),
+  indent: (clampValue) => ({ textIndent: clampValue }),
+};
+
+export const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  border: (clampValue) => ({ borderWidth: clampValue }),
+  "border-t": (clampValue) => ({ borderTopWidth: clampValue }),
+  "border-r": (clampValue) => ({ borderRightWidth: clampValue }),
+  "border-b": (clampValue) => ({ borderBottomWidth: clampValue }),
+  "border-l": (clampValue) => ({ borderLeftWidth: clampValue }),
+  outline: (clampValue) => ({ outlineWidth: clampValue }),
+  "outline-offset": (clampValue) => ({ outlineOffset: clampValue }),
+};
+
+export const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  rounded: (clampValue) => ({ borderRadius: clampValue }),
+  "rounded-t": (clampValue) => ({
+    borderTopLeftRadius: clampValue,
+    borderTopRightRadius: clampValue,
+  }),
+  "rounded-r": (clampValue) => ({
+    borderTopRightRadius: clampValue,
+    borderBottomRightRadius: clampValue,
+  }),
+  "rounded-b": (clampValue) => ({
+    borderBottomRightRadius: clampValue,
+    borderBottomLeftRadius: clampValue,
+  }),
+  "rounded-l": (clampValue) => ({
+    borderTopLeftRadius: clampValue,
+    borderBottomLeftRadius: clampValue,
+  }),
+  "rounded-tl": (clampValue) => ({ borderTopLeftRadius: clampValue }),
+  "rounded-tr": (clampValue) => ({ borderTopRightRadius: clampValue }),
+  "rounded-br": (clampValue) => ({ borderBottomRightRadius: clampValue }),
+  "rounded-bl": (clampValue) => ({ borderBottomLeftRadius: clampValue }),
+};
+
+// `perspective` has no native utility root in Tailwind v3 at all (verified
+// against real compiled v3.4.19 output — `perspective-500`/`perspective-[…]`
+// produce no CSS), so making it fluid there would invent a utility Tailwind
+// itself doesn't have. Tailwind v4 does ship a native arbitrary-value-only
+// `perspective-[…]` utility, so this is registered for v4 only — see the
+// `cssApi === "v4"` guard around its `matchUtilities` call below.
+export const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+  perspective: (clampValue) => ({ perspective: clampValue }),
+};
+
+// Arbitrary-only tables, merged for a single matchUtilities registration loop.
+// MISC_PROPS is intentionally excluded — it's registered separately, gated to
+// v4 only (see above).
+export const ARBITRARY_ONLY_PROPS = {
+  ...TYPOGRAPHY_PROPS,
+  ...BORDER_PROPS,
+  ...RADIUS_PROPS,
+};
+
+// ─── Piecewise declaration builder ────────────────────────────────────────────
+// Translates a parsed fluid value into what a `matchUtilities` callback
+// returns. A shorthand/2-anchor value is just the base declarations; a 3+
+// anchor value additionally nests a `@media (min-width: …)` block per extra
+// segment, so a single class compiles to one selector with stacked overrides
+// instead of a single clamp() — the same shape as manually chaining media
+// queries, but generated from one arbitrary-value bracket.
+
+// Nested-at-rule-friendly declaration shape (matches Tailwind's own
+// CSSRuleObject structurally — that type isn't exported, so this is a minimal
+// local stand-in just for the media-query nesting this helper introduces).
+interface NestedDeclarations {
+  [key: string]: string | NestedDeclarations;
+}
+
+// A segment boundary has to be measured against whatever the slope is measured
+// against. A `vw` slope tracks the viewport, so its segments gate on `@media`;
+// a `cqw`/`cqh` slope tracks the nearest query container, so gating those on
+// viewport width would switch segments on one axis while interpolating along
+// another — e.g. a 400px sidebar in a 1280px viewport would jump to the second
+// segment's slope while its own container is still inside the first segment's
+// range. Both Tailwind v3 and v4 accept a nested `@container` key here.
+export function segmentAtRule(unit: FluidUnit, minBreakpoint: number): string {
+  const isContainerUnit = unit === "cqw" || unit === "cqh";
+  return `${isContainerUnit ? "@container" : "@media"} (min-width: ${minBreakpoint}px)`;
+}
+
+// What a matcher returns when the value doesn't parse.
+//
+// v3 treats `null` as "no utility" and emits nothing. v4 does NOT: its compat
+// layer calls `Object.entries()` on whatever the callback returns, so `null`
+// throws `TypeError: Cannot convert undefined or null to object` and takes the
+// whole build down — from a plain typo like `w-fluid-[16]` (one size instead of
+// two), with an error naming neither the class nor this plugin.
+//
+// An empty object is safe on both. It costs a stray empty rule on v3
+// (`.w-fluid-\[16\] {}`), which only ever appears for a value that was already
+// broken, and that is a much better failure than a dead build. Deliberately not
+// keyed off `cssApi`: that option selects *composition formulas*, and a user can
+// legitimately run `cssApi: "v3"` on the v4 engine (the documented compat-mode
+// case), where returning `null` would still crash.
+const NO_UTILITY: NestedDeclarations = {};
+
+function buildDeclarations(
+  parsed: FluidCssValue,
+  toDeclarations: (clampValue: string) => Declarations,
+): NestedDeclarations {
+  const declarations: NestedDeclarations = toDeclarations(parsed.value);
+  for (const segment of parsed.segments) {
+    declarations[segmentAtRule(parsed.unit, segment.minBreakpoint)] = toDeclarations(
+      segment.value,
+    );
+  }
+  return declarations;
+}
 
 // ─── Plugin handler ───────────────────────────────────────────────────────────
 // The actual plugin body, shared by `createFluidPlugin` (v3 / JS config) and the
@@ -183,7 +416,15 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
 /** The function Tailwind calls with its plugin API — same type v3 and v4 accept. */
 type PluginHandler = Parameters<typeof plugin>[0];
 
-function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
+function createPluginHandler(
+  config: FluidPluginConfig = {},
+  defaultCssApi: CssApi = "v3",
+): PluginHandler {
+  // `config.cssApi` (an explicit override) wins over the entry point's usual
+  // default — see the `cssApi` doc comment on `FluidPluginConfig` for when
+  // that override is needed (e.g. Tailwind v4's legacy JS-config compat mode).
+  const cssApi = config.cssApi ?? defaultCssApi;
+
   // Precedence: per-target override → general knob → built-in default.
   const resolved: ResolvedConfig = {
     textBreakpointRange:
@@ -206,7 +447,7 @@ function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
     rootFontSize: resolved.rootFontSize,
   };
 
-  return function ({ addUtilities, matchUtilities, theme }) {
+  return function ({ addUtilities, matchUtilities, addBase, theme }) {
     // Named breakpoints: Tailwind's theme screens + plugin overrides.
     const breakpointMap = resolveBreakpoints(
       theme as ThemeFunction,
@@ -265,6 +506,9 @@ function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
     // Generates: p-fluid-4, px-fluid-4, gap-fluid-4, w-fluid-4, etc.
 
     const spaceUtilities: Record<string, Record<string, string>> = {};
+    // Kept separate so the engine that rejects `.-` selectors can be detected
+    // without taking the positive utilities down with it — see below.
+    const negativeSpaceUtilities: Record<string, Record<string, string>> = {};
 
     for (const [key, { minSize, maxSize }] of Object.entries(
       DEFAULT_SPACE_SCALE,
@@ -277,12 +521,90 @@ function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
         ...lengthOptions,
       });
 
+      // Negating both ends produces a mirrored ramp — fluidClamp re-sorts the
+      // floor/ceiling itself, so the result is a well-formed clamp() with the
+      // bounds the other way round rather than an inverted one.
+      const negatedClampValue = fluidClamp({
+        minSize: -minSize,
+        maxSize: -maxSize,
+        fluidUnit: resolved.spaceUnit,
+        ...spaceBreakpointRange,
+        ...lengthOptions,
+      });
+
       for (const [prefix, toDeclarations] of Object.entries(SPACE_PROPS)) {
         spaceUtilities[`.${prefix}-fluid-${key}`] = toDeclarations(clampValue);
+
+        if (NEGATABLE_PREFIXES.has(prefix)) {
+          negativeSpaceUtilities[`.-${prefix}-fluid-${key}`] =
+            toDeclarations(negatedClampValue);
+        }
       }
     }
 
     addUtilities({ ...typeUtilities, ...spaceUtilities });
+
+    // ── Negative static utilities ────────────────────────────────────────────
+    // Two engines, two mechanisms. v3 takes `.-mt-fluid-4` straight through
+    // `addUtilities`; v4 rejects any selector starting with `-` ("Utilities must
+    // be a single class name and start with a lowercase letter") and wants a
+    // functional utility with `supportsNegativeValues` instead.
+    //
+    // Which one applies is a property of the *engine*, not of `cssApi` — that
+    // option selects composition formulas, and `cssApi: "v3"` on the v4 engine
+    // is a documented setup. So the engine is detected by trying the v3 form and
+    // catching v4's rejection. v4 validates every selector before registering
+    // any of them, so a throw leaves nothing half-applied.
+    let negativesRegistered = false;
+    try {
+      addUtilities(negativeSpaceUtilities);
+      negativesRegistered = true;
+    } catch {
+      negativesRegistered = false;
+    }
+
+    // v4 path. The values map is an identity of the scale keys, which makes the
+    // callback's input carry both the key and the sign: v4 negates by wrapping,
+    // so a negative candidate arrives as `calc(4 * -1)` and a positive one as
+    // plain `4`. Positives yield nothing here — `addUtilities` already emitted
+    // them, and returning them again would duplicate every static utility.
+    //
+    // This can't extend to arbitrary values: Tailwind rejects a negative
+    // candidate whose value contains a comma before the matcher ever runs, and
+    // the bracket grammar is comma-based. `mt-fluid-[-8,-16]` is the spelling.
+    if (!negativesRegistered) {
+      const scaleKeyIdentity = Object.fromEntries(
+        Object.keys(DEFAULT_SPACE_SCALE).map((key) => [key, key]),
+      );
+
+      matchUtilities(
+        Object.fromEntries(
+          Object.entries(SPACE_PROPS)
+            .filter(([prefix]) => NEGATABLE_PREFIXES.has(prefix))
+            .map(([prefix, toDeclarations]) => [
+              `${prefix}-fluid`,
+              (value: string) => {
+                const negated = /^calc\((.+) \* -1\)$/.exec(String(value));
+                if (!negated) return NO_UTILITY;
+
+                const entry = DEFAULT_SPACE_SCALE[negated[1]];
+                if (!entry) return NO_UTILITY;
+
+                return toDeclarations(
+                  fluidClamp({
+                    minSize: -entry.minSize,
+                    maxSize: -entry.maxSize,
+                    fluidUnit: resolved.spaceUnit,
+                    ...spaceBreakpointRange,
+                    ...lengthOptions,
+                  }),
+                );
+              },
+            ]),
+        ),
+        { values: scaleKeyIdentity, supportsNegativeValues: true },
+      );
+    }
 
     // ── Dynamic arbitrary values (comma-separated; "_" also works) ───────────
     // text-fluid-[16,24]                ← shorthand: two sizes, config breakpoints
@@ -295,8 +617,8 @@ function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
     matchUtilities(
       {
         "text-fluid": (value) => {
-          const clampValue = textClamp(value);
-          return clampValue ? { fontSize: clampValue } : null;
+          const parsed = textClamp(value);
+          return parsed ? buildDeclarations(parsed, (v) => ({ fontSize: v })) : NO_UTILITY;
         },
       },
       { type: "any" },
@@ -307,20 +629,124 @@ function createPluginHandler(config: FluidPluginConfig = {}): PluginHandler {
         Object.entries(SPACE_PROPS).map(([prefix, toDeclarations]) => [
           `${prefix}-fluid`,
           (value: string) => {
-            const clampValue = spaceClamp(value);
-            return clampValue ? toDeclarations(clampValue) : null;
+            const parsed = spaceClamp(value);
+            return parsed ? buildDeclarations(parsed, toDeclarations) : NO_UTILITY;
           },
         ]),
       ),
       { type: "any" },
     );
+
+    // ── Arbitrary-only prefixes (no static scale in v1) ─────────────────────
+    // typography, border/outline width, border-radius — all plain
+    // (or dual/quad-declaration) properties, bound to the space breakpoint
+    // range/unit like everything else above.
+
+    matchUtilities(
+      Object.fromEntries(
+        Object.entries(ARBITRARY_ONLY_PROPS).map(([prefix, toDeclarations]) => [
+          `${prefix}-fluid`,
+          (value: string) => {
+            const parsed = spaceClamp(value);
+            return parsed ? buildDeclarations(parsed, toDeclarations) : NO_UTILITY;
+          },
+        ]),
+      ),
+      { type: "any" },
+    );
+
+    // ── v4-only prefixes ──────────────────────────────────────────────────────
+    // perspective — see the comment on MISC_PROPS for why this doesn't extend
+    // to v3.
+
+    if (cssApi === "v4") {
+      matchUtilities(
+        Object.fromEntries(
+          Object.entries(MISC_PROPS).map(([prefix, toDeclarations]) => [
+            `${prefix}-fluid`,
+            (value: string) => {
+              const parsed = spaceClamp(value);
+              return parsed ? buildDeclarations(parsed, toDeclarations) : NO_UTILITY;
+            },
+          ]),
+        ),
+        { type: "any" },
+      );
+    }
+
+    // ── Composite prefixes (translate-x/y, blur, ring, space-x/y, divide-x/y) ─
+    // These compose into a shared property/selector via Tailwind's own internal
+    // CSS variables, which differ between v3 and v4 — see composite.ts.
+
+    matchUtilities(
+      Object.fromEntries(
+        Object.entries(COMPOSITE_PROPS).map(([prefix, toDeclarations]) => [
+          `${prefix}-fluid`,
+          (value: string) => {
+            const parsed = spaceClamp(value);
+            return parsed
+              ? buildDeclarations(parsed, (v) => toDeclarations(cssApi, v))
+              : NO_UTILITY;
+          },
+        ]),
+      ),
+      { type: "any" },
+    );
+
+    // ── Fluid CSS variables (:root overrides, optionally piecewise) ─────────
+    // Reuses the exact same anchor grammar as text-fluid-[...] — a config
+    // value is parsed exactly like an arbitrary utility value, and its base
+    // value/segments become a :root declaration plus one @media override per
+    // extra anchor. Config errors are loud: an unparsable value throws at
+    // build time rather than silently emitting no override.
+
+    if (config.fluidVars) {
+      for (const [name, rawValue] of Object.entries(config.fluidVars)) {
+        const parsed = textClamp(rawValue);
+        if (!parsed) {
+          throw new Error(
+            `fluid-clamp: invalid fluidVars["${name}"] value "${rawValue}".`,
+          );
+        }
+
+        // A piecewise ramp needs a segment boundary, and for a container unit
+        // that boundary is `@container` — which can never match on `:root`,
+        // since the root element is not inside a query container. Such a value
+        // is unsatisfiable rather than merely awkward, so it's a loud config
+        // error like every other bad `fluidVars` input. (A non-piecewise
+        // container-unit var is fine: it emits one clamp with no boundary, and
+        // the `cq*` slope resolves against whatever container the *consuming*
+        // element sits in.)
+        if (
+          parsed.segments.length > 0 &&
+          (parsed.unit === "cqw" || parsed.unit === "cqh")
+        ) {
+          throw new Error(
+            `fluid-clamp: fluidVars["${name}"] uses ${parsed.unit} with 3+ anchors. ` +
+              `A piecewise ramp needs a @container boundary, which can never match ` +
+              `on :root. Use two anchors, a vw-based value, or a utility class instead.`,
+          );
+        }
+
+        const varName = `--${name}`;
+        addBase({ ":root": { [varName]: parsed.value } });
+
+        for (const segment of parsed.segments) {
+          addBase({
+            [segmentAtRule(parsed.unit, segment.minBreakpoint)]: {
+              ":root": { [varName]: segment.value },
+            },
+          });
+        }
+      }
+    }
   };
 }
 
 // ─── Plugin factory (v3 / JS config) ──────────────────────────────────────────
 
 export function createFluidPlugin(config: FluidPluginConfig = {}) {
-  return plugin(createPluginHandler(config));
+  return plugin(createPluginHandler(config, "v3"));
 }
 
 // ─── Flat options (v4 CSS-first `@plugin`) ────────────────────────────────────
@@ -347,6 +773,7 @@ export interface FluidPluginCssOptions {
   spaceUnit?: FluidUnit;
   lengthUnit?: LengthUnit;
   rootFontSize?: number;
+  cssApi?: CssApi;
 }
 
 /** Everything the default export accepts: nested config keys + flat CSS keys. */
@@ -393,7 +820,27 @@ function assertValidUnits(options: FluidPluginOptions) {
       `fluid-clamp: invalid lengthUnit "${lengthUnit}" — expected rem or px.`,
     );
   }
+  const { cssApi } = options;
+  if (cssApi !== undefined && cssApi !== "v3" && cssApi !== "v4") {
+    throw new Error(`fluid-clamp: invalid cssApi "${cssApi}" — expected v3 or v4.`);
+  }
 }
+
+// The flat-only keys — the ones `normalizeOptions` consumes to build nested
+// config and must NOT pass through to `FluidPluginConfig`. Typed as a full
+// `Record` of `FluidPluginCssOptions`-minus-shared-keys so adding a flat option
+// without listing it here is a type error rather than a silent leak.
+const FLAT_ONLY_KEYS: Record<
+  Exclude<keyof FluidPluginCssOptions, keyof FluidPluginConfig>,
+  true
+> = {
+  minBreakpoint: true,
+  maxBreakpoint: true,
+  textMinBreakpoint: true,
+  textMaxBreakpoint: true,
+  spaceMinBreakpoint: true,
+  spaceMaxBreakpoint: true,
+};
 
 export function normalizeOptions(
   options: FluidPluginOptions = {},
@@ -405,7 +852,19 @@ export function normalizeOptions(
       `fluid-clamp: invalid rootFontSize "${rootFontSize}" — expected a number (px).`,
     );
   }
+
+  // Every nested `FluidPluginConfig` key passes through untouched by default —
+  // only the keys derived from the flat CSS form are computed below. Spreading
+  // rather than re-listing each key is deliberate: an allow-list has to be
+  // updated for every new config option, and missing one silently drops that
+  // option on this entry point only (which is how `fluidVars` was lost from
+  // the default export while working fine through `createFluidPlugin`).
+  const passthrough = { ...options } as Record<string, unknown>;
+  for (const key of Object.keys(FLAT_ONLY_KEYS)) delete passthrough[key];
+  const config = passthrough as FluidPluginConfig;
+
   return {
+    ...config,
     breakpointRange:
       options.breakpointRange ??
       rangeFromFlatEndpoints(options.minBreakpoint, options.maxBreakpoint),
@@ -415,12 +874,7 @@ export function normalizeOptions(
     spaceBreakpointRange:
       options.spaceBreakpointRange ??
       rangeFromFlatEndpoints(options.spaceMinBreakpoint, options.spaceMaxBreakpoint),
-    unit: options.unit,
-    textUnit: options.textUnit,
-    spaceUnit: options.spaceUnit,
-    lengthUnit: options.lengthUnit,
     rootFontSize,
-    breakpoints: options.breakpoints,
   };
 }
 
@@ -429,7 +883,7 @@ export function normalizeOptions(
 // `plugin.withOptions` is what lets Tailwind v4 pass `@plugin { … }` options in.
 
 const fluidClampPlugin = plugin.withOptions<FluidPluginOptions>(
-  (options = {}) => createPluginHandler(normalizeOptions(options)),
+  (options = {}) => createPluginHandler(normalizeOptions(options), "v4"),
 );
 
 export default fluidClampPlugin;

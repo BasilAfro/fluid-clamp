@@ -1,5 +1,138 @@
 # Changelog
 
+## Unreleased
+
+- Fix: **a malformed arbitrary value crashed the Tailwind v4 build.** Every
+  matcher returned `null` for a value it couldn't parse, which v3 reads as "no
+  utility" — but v4 passes the return value straight to `Object.entries()`, so
+  `null` threw `TypeError: Cannot convert undefined or null to object` and took
+  the whole build down, naming neither the offending class nor this plugin. A
+  plain typo like `w-fluid-[16]` (one size where two are required) was enough.
+  Matchers now return an empty object, which both engines accept. Not keyed off
+  `cssApi`: that option selects composition formulas, and `cssApi: "v3"` on the
+  v4 engine is a documented setup where `null` would still have crashed.
+- Fix: **piecewise ramps gated container-relative slopes on viewport width.**
+  A 3+ anchor value always emitted `@media (min-width: …)` segment boundaries,
+  even when the slope used `cqw`/`cqh`. A 400px sidebar inside a 1280px viewport
+  therefore picked up the second segment's slope while its own container was
+  still inside the first segment's range. Container units now emit
+  `@container (min-width: …)`; `vw` keeps `@media`, and a named breakpoint still
+  forces `vw` (screens are viewport widths) so those ramps are unaffected.
+  A piecewise `fluidVars` value resolving to a container unit is now a loud
+  build-time error — `:root` is never inside a container, so it can't be
+  satisfied either way.
+- New: **negative static utilities** — `-mt-fluid-4`, `-inset-fluid-2`, and so
+  on, for exactly the prefixes Tailwind itself makes negatable (verified against
+  compiled native output, not assumed). Previously `-mt-fluid-4` matched no rule
+  at all. Arbitrary values take their signs inside the bracket
+  (`mt-fluid-[-8,-16]`, which already worked); the `-` prefix can't work there
+  because Tailwind rejects negative comma-bearing candidates before the plugin
+  sees them. Now documented.
+
+- Fix: **`fluidVars` was silently dropped by the default export.** The v4
+  CSS-first / default export normalizes its options before handing them to the
+  shared plugin body, and that normalization rebuilt the config key-by-key —
+  omitting `fluidVars`, so `fluidClampPlugin({ fluidVars: { … } })` emitted no
+  `:root` overrides at all (and never reached the validation that makes a bad
+  value throw), while `createFluidPlugin({ fluidVars: { … } })` worked. The
+  normalizer now passes every nested config option through by default and only
+  computes the keys derived from the flat CSS form, so a newly added option
+  can't go missing on one entry point again.
+- Fix: **non-finite arbitrary sizes emitted invalid CSS.** Size and breakpoint
+  tokens were parsed with bare `Number()`, so `w-fluid-[Infinity,24]` compiled
+  to `width: clamp(1.5rem, -Infinityvw + Infinityrem, Infinityrem)` instead of
+  being rejected like every other malformed value. Tokens are now restricted to
+  plain optionally-signed decimals, which also stops `0x10` and `1e2` from being
+  silently reinterpreted as `16` and `100`.
+- Fix: a `theme.screens` entry in object form with an unparseable `min` (e.g.
+  `{ min: "junk", max: "1280px" }`) dropped the breakpoint name entirely instead
+  of falling back to `max`.
+- New: the **`CssApi`** type is exported from the package root — `cssApi` is a
+  public config option, so its type is now nameable by consumers writing a typed
+  config object.
+- Docs: noted why named breakpoints in `rem` always resolve against 16px rather
+  than the `rootFontSize` option (`rem` in a media query resolves against the
+  browser's initial font size, not the root element's).
+- Packaging: added `sideEffects: false`, `engines`, `packageManager`, and the
+  `author`/`homepage`/`bugs` metadata fields. `sideEffects` is stamped into
+  `dist/cjs/package.json` and `dist/esm/package.json` as well as the root:
+  bundlers read the flag from the package.json nearest the resolved module, so
+  the `{ "type": … }` stamps would otherwise shadow the root's and leave
+  tree-shaking disabled for the ESM build.
+- Tooling: added `pnpm-workspace.yaml` recording `allowBuilds: { esbuild: false }`.
+  esbuild's postinstall is a fallback that only matters when its per-platform
+  binary package is missing, which it isn't — but pnpm 11 fails every command
+  with `ERR_PNPM_IGNORED_BUILDS` until the decision is written down.
+
+- New: **`fluidVars`** config option — emits fluid `:root` CSS custom
+  properties instead of utility classes, e.g.
+  `fluidVars: { "text-xs": "10@390,11@768,12@1280" }` → `--text-xs`, useful
+  for overriding Tailwind's own scale variables or any global design token
+  across breakpoints. Each value is parsed with the exact same
+  arbitrary-value grammar as `text-fluid-[...]` (shorthand, anchors, named
+  breakpoints, insets, the unit token, bound markers, and piecewise 3+
+  anchors), so a 3+ anchor value emits a base `:root` declaration plus one
+  `@media (min-width: …)` override per extra anchor — reusing the same
+  parser and `FluidCssValue` shape as the piecewise-ramp feature below.
+  Resolved against `textUnit`/`textBreakpointRange`. `@plugin` blocks are
+  flat-key-only, so this option is JS-config-only, same as `breakpoints`. An
+  unparsable value throws a clear build-time error.
+- New: **piecewise ramps** — arbitrary-value anchors are no longer capped at
+  two. `text-fluid-[24@390,28@640,42@768,48@1024]` (and every other
+  `*-fluid-[...]` prefix) now accepts 3+ anchors: each consecutive pair (sorted
+  by breakpoint) becomes its own two-point clamp, and every pair after the
+  first is scoped behind a `@media (min-width: …)` block matching its lower
+  anchor — one class compiles to a base clamp plus stacked media overrides,
+  instead of a single two-point `clamp()`. Bound markers (`<`/`>`) now only
+  open the true outer ends (the first segment's floor, the last segment's
+  ceiling); interior segments stay fully clamped. This fills in the "3+
+  anchors are reserved for a future release" note from 2.0.0.
+- Added a `@basilafro/fluid-clamp/tw-merge` subpath export — a ready-made
+  `tailwind-merge`/`clsx` integration (`cn()`, `createFluidTwMerge`,
+  `fluidClassGroups`) so every fluid-clamp utility resolves to the correct
+  `tailwind-merge` class group out of the box, without hand-rolling the
+  `extendTailwindMerge` config per project. `clsx`/`tailwind-merge` are
+  optional peer dependencies, isolated to this subpath so the main entry
+  point stays dependency-free for consumers who don't use them.
+- Added a large batch of new fluid utilities:
+  - Sizing/position (static scale, same as `p-fluid-*`): `min-w`, `max-w`,
+    `min-h`, `max-h`, `size`, `top`, `right`, `bottom`, `left`, `inset`,
+    `inset-x`, `inset-y`, `start`, `end`, `basis`, and the full `scroll-m*`/
+    `scroll-p*` directional set.
+  - Typography, borders, and radius (arbitrary values only): `leading`,
+    `tracking`, `indent`, `border`/`border-t/r/b/l`, `outline`,
+    `outline-offset`, `rounded` + all corner/side variants.
+  - `perspective` (arbitrary values only), registered for Tailwind v4 only —
+    v3 never shipped a native `perspective` utility to extend, so this plugin
+    doesn't invent one there.
+  - Composite utilities that compose into a shared Tailwind property
+    (`transform`/`translate`, `filter`, `box-shadow`) or a child selector
+    instead of a plain CSS property, implemented per Tailwind major version
+    so they stay compatible with native utilities on the same element:
+    `translate-x`, `translate-y`, `blur`, `backdrop-blur`, `ring`,
+    `ring-offset`, `space-x`, `space-y`, `divide-x`, `divide-y`.
+  - New `cssApi: "v3" | "v4"` config option to override which Tailwind major
+    version's formula the composite utilities above use, for setups where the
+    entry point (`createFluidPlugin` vs. the default `@plugin` export) doesn't
+    match the Tailwind version actually generating the rest of the page's
+    utilities (e.g. Tailwind v4's legacy JS-config compat mode).
+- Tightened the `tailwindcss` peer dependency range to `>=3.4.0 <5.0.0` — the
+  composite utilities above hardcode Tailwind's internal CSS variable names
+  and composition formulas, verified against 3.4.19 and 4.3.2, so an
+  unverified future major version is excluded until re-tested. The floor was
+  raised from `3.0.0` to `3.4.0` because several fluid utilities extend
+  native Tailwind utilities that didn't exist before 3.4 (`size-*`,
+  `start-*`/`end-*`).
+- Fixed: ship a real ESM build (`dist/esm`) alongside the existing CJS build
+  (`dist/cjs`), selected via `exports` conditions (`import`/`require`). Node's
+  CJS→ESM interop previously handed Tailwind's plugin loader the whole
+  `module.exports` object instead of the plugin function under `.default`,
+  so consumers importing from an ESM `tailwind.config.ts` (or any ESM context)
+  hit `"The plugin does not accept options"` and had to hand-write an
+  unwrapping shim (`export default pkg.default`). A native ESM build removes
+  the CJS interop step entirely, so `import fluidClamp from "@basilafro/fluid-clamp"`
+  now gets the real `plugin.withOptions` function directly — no shim needed.
+
 ## 2.1.0 - 2026-07-27
 
 - **Tailwind CSS v4 support** (v3 keeps working unchanged; `peerDependencies`

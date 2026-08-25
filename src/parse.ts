@@ -4,7 +4,7 @@
  * plugin glue so they can be unit-tested directly.
  */
 
-import { fluidClamp, FluidUnit, LengthUnit, isFluidUnit } from "./fluid";
+import { fluidClamp, FluidUnit, LengthUnit, isFluidUnit } from "./fluid.js";
 
 // ─── Breakpoint config ────────────────────────────────────────────────────────
 
@@ -50,9 +50,13 @@ export function parseScreen(value: unknown, rootFontSize = 16): number {
   }
 
   if (value && typeof value === "object") {
+    // Prefer `min`, but fall back to `max` when `min` is absent *or*
+    // unparseable — a screen like { min: "junk", max: "1280px" } still has one
+    // usable endpoint, and returning NaN would drop the whole breakpoint name.
     const screenObject = value as Record<string, unknown>;
-    if ("min" in screenObject) return parseScreen(screenObject.min, rootFontSize);
-    if ("max" in screenObject) return parseScreen(screenObject.max, rootFontSize);
+    const min = parseScreen(screenObject.min, rootFontSize);
+    if (!isNaN(min)) return min;
+    return parseScreen(screenObject.max, rootFontSize);
   }
 
   return NaN;
@@ -69,6 +73,12 @@ export function resolveBreakpoints(
     for (const [name, value] of Object.entries(
       screens as Record<string, unknown>,
     )) {
+      // Intentionally the 16px default rather than the plugin's `rootFontSize`:
+      // a screen is a media-query length, and `rem` in a media query resolves
+      // against the browser's *initial* font size, not the root element's, so a
+      // project that sets `html { font-size: 10px }` (and `rootFontSize: 10`)
+      // still has `40rem` screens break at 640px. `rootFontSize` only converts
+      // the sizes this plugin emits, which are ordinary element-level lengths.
       const pixels = parseScreen(value);
       if (!isNaN(pixels)) breakpointMap[name] = pixels;
     }
@@ -125,15 +135,23 @@ export function resolveBreakpointConfig(
 //        text-fluid-[16@320-16,24@1280-24] per-anchor inset (effective bp = bp − 16 / − 24)
 //
 //      The inset (`-N`) is subtracted directly from that breakpoint — use it to
-//      account for container padding or sibling elements. (3+ anchors / piecewise
-//      ramps are reserved for a future release.)
+//      account for container padding or sibling elements.
+//
+//      3+ anchors produce a piecewise ramp: each consecutive pair (sorted by
+//      breakpoint) becomes its own two-point clamp, and every pair after the
+//      first is scoped behind a `@media (min-width: …)` matching its lower
+//      anchor — e.g. text-fluid-[16@sm,24@md,32@lg] clamps sm→md, then
+//      overrides with a md→lg clamp from the md breakpoint up. A single
+//      clamp() can't do multi-slope ramps, so this is the multi-declaration
+//      escape hatch — see `FluidCssValue`.
 //
 //   Optional bound markers on the bracket edges break the clamp limits and keep
 //   the value extrapolating along the same slope. They are POSITIONAL: a leading
 //   "<" opens the min-breakpoint end, a trailing ">" opens the max-breakpoint end
-//   — e.g. text-fluid-[<16@320,24@1280>]. For a shrinking scale the smaller size
-//   sits at the max breakpoint, so which size bound each marker opens flips
-//   accordingly (see resolveBoundFlags).
+//   — e.g. text-fluid-[<16@320,24@1280>]. For 3+ anchors the markers only open
+//   the true outer ends (the first pair's floor, the last pair's ceiling); For
+//   a shrinking scale the smaller size sits at the max breakpoint, so which
+//   size bound each marker opens flips accordingly (see resolveBoundFlags).
 //
 // The fluid unit is chosen automatically, with this precedence:
 //   1. An explicit leading unit token (cqw|cqh|vw) — always wins:
@@ -143,11 +161,19 @@ export function resolveBreakpointConfig(
 
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
-// An empty numeric part is NaN, not 0 (Number("") is 0) — so a malformed
-// token like "16@-320" (empty breakpoint after the inset split) is rejected.
+//
+// Deliberately stricter than `Number()`: only a plain optionally-signed decimal
+// is accepted. `Number()` would also take "Infinity" (which reaches the output
+// as an invalid `Infinityrem` length instead of being rejected like every other
+// malformed value), plus "0x10" and "1e2", which silently mean something other
+// than the px number they look like. An empty numeric part is NaN, not 0
+// (`Number("")` is 0) — so a malformed token like "16@-320" (empty breakpoint
+// after the inset split) is rejected.
+const DECIMAL_PATTERN = /^-?(?:\d+\.?\d*|\.\d+)$/;
+
 export function parsePixels(token: string): number {
   const numericPart = token.endsWith("px") ? token.slice(0, -2) : token;
-  return numericPart === "" ? NaN : Number(numericPart);
+  return DECIMAL_PATTERN.test(numericPart) ? Number(numericPart) : NaN;
 }
 
 export interface ParsedAnchor {
@@ -198,6 +224,26 @@ export interface LengthOptions {
   rootFontSize?: number;
 }
 
+/**
+ * Result of parsing an arbitrary fluid value. `value` is the declaration
+ * active from viewport 0 (or the shorthand/2-anchor range as a whole);
+ * `segments` carries any additional piecewise pairs from a 3+ anchor value,
+ * each meant to override `value` from its `minBreakpoint` up via a
+ * `@media`/`@container (min-width: …)` block. Empty for the shorthand and
+ * 2-anchor forms.
+ *
+ * `unit` is the fluid unit that actually won the precedence rules (inline
+ * token → named breakpoint ⇒ vw → configured fallback). Callers need it to
+ * pick the right at-rule for `segments`: a `cqw`/`cqh` slope measures its
+ * container, so gating its segments on viewport width would mix two different
+ * reference frames.
+ */
+export interface FluidCssValue {
+  value: string;
+  segments: Array<{ minBreakpoint: number; value: string }>;
+  unit: FluidUnit;
+}
+
 // Maps the positional bound markers to fluidClamp's size-based flags.
 // `<` opens the min-breakpoint end, `>` the max-breakpoint end. fluidClamp's
 // floor is the smaller size and its ceiling the larger one: for a growing scale
@@ -222,7 +268,7 @@ export function parseArbitraryValue(
   fallbackRange: NumericBreakpointRange,
   breakpoints: Record<string, number> = {},
   lengthOptions: LengthOptions = {},
-): string | null {
+): FluidCssValue | null {
   // Optional bound markers on the bracket edges break the clamp limits so the
   // value keeps extrapolating along the same slope. They are POSITIONAL: a
   // leading "<" opens the min-breakpoint end, a trailing ">" opens the
@@ -257,37 +303,55 @@ export function parseArbitraryValue(
   // ── Anchor form: every token carries an explicit `size@breakpoint` ──────────
   if (parts.some((part) => part.includes("@"))) {
     const anchors = parts.map((part) => parseAnchor(part, breakpoints));
-    if (anchors.some((anchor) => anchor === null)) return null;
+    if (anchors.some((anchor) => anchor === null) || anchors.length < 2) return null;
 
-    // 3+ anchors (piecewise) are not implemented yet — reserved for later.
-    if (anchors.length !== 2) return null;
-
-    const [first, second] = anchors as ParsedAnchor[];
-    // Order by breakpoint so the smaller breakpoint is the min anchor.
-    const [lowAnchor, highAnchor] =
-      first.breakpoint <= second.breakpoint ? [first, second] : [second, first];
-
-    const { clampMin, clampMax } = resolveBoundFlags(
-      openMinBreakpointEnd,
-      openMaxBreakpointEnd,
-      lowAnchor.size,
-      highAnchor.size,
+    // Sort ascending by breakpoint so consecutive pairs form the ramp's
+    // segments regardless of the order they were written in.
+    const sorted = [...(anchors as ParsedAnchor[])].sort(
+      (a, b) => a.breakpoint - b.breakpoint,
     );
+    const unit = pickUnit(sorted.some((anchor) => anchor.named));
 
-    try {
-      return fluidClamp({
-        minSize: lowAnchor.size,
-        maxSize: highAnchor.size,
-        minBreakpoint: lowAnchor.breakpoint,
-        maxBreakpoint: highAnchor.breakpoint,
-        fluidUnit: pickUnit(first.named || second.named),
-        clampMin,
-        clampMax,
-        ...lengthOptions,
-      });
-    } catch {
-      return null;
+    let base: string | null = null;
+    const segments: FluidCssValue["segments"] = [];
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const low = sorted[i];
+      const high = sorted[i + 1];
+      const isFirst = i === 0;
+      const isLast = i === sorted.length - 2;
+
+      // Bound markers only open the true outer ends: the first pair's floor
+      // and the last pair's ceiling. Interior pairs are always fully clamped
+      // — they're bounded by real anchors on both sides, not the bracket edge.
+      const { clampMin, clampMax } = resolveBoundFlags(
+        isFirst && openMinBreakpointEnd,
+        isLast && openMaxBreakpointEnd,
+        low.size,
+        high.size,
+      );
+
+      let clampValue: string;
+      try {
+        clampValue = fluidClamp({
+          minSize: low.size,
+          maxSize: high.size,
+          minBreakpoint: low.breakpoint,
+          maxBreakpoint: high.breakpoint,
+          fluidUnit: unit,
+          clampMin,
+          clampMax,
+          ...lengthOptions,
+        });
+      } catch {
+        return null;
+      }
+
+      if (isFirst) base = clampValue;
+      else segments.push({ minBreakpoint: low.breakpoint, value: clampValue });
     }
+
+    return { value: base as string, segments, unit };
   }
 
   // ── Shorthand form: exactly two sizes, across the configured breakpoints ────
@@ -303,17 +367,20 @@ export function parseArbitraryValue(
     maxSize,
   );
 
+  const unit = pickUnit(false);
+
   try {
-    return fluidClamp({
+    const clampValue = fluidClamp({
       minSize,
       maxSize,
       minBreakpoint: fallbackRange.minBreakpoint,
       maxBreakpoint: fallbackRange.maxBreakpoint,
-      fluidUnit: pickUnit(false),
+      fluidUnit: unit,
       clampMin,
       clampMax,
       ...lengthOptions,
     });
+    return { value: clampValue, segments: [], unit };
   } catch {
     return null;
   }
