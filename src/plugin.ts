@@ -267,6 +267,25 @@ export const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, 
   "scroll-pl": (clampValue) => ({ scrollPaddingLeft: clampValue }),
 };
 
+// Prefixes that also get a negative static utility (`-mt-fluid-4`). This is
+// exactly the set Tailwind itself makes negatable — margins, insets and
+// scroll-margins, but not padding, gaps, sizing or scroll-padding, where a
+// negative length is meaningless. Verified against compiled v3 output rather
+// than assumed; `test/registration.test.ts` re-checks it against the native
+// utilities so a Tailwind change can't silently desync it.
+//
+// Negatives exist only for the static scale. Tailwind rejects a negative
+// arbitrary candidate whose value contains a comma *before* the plugin's
+// matcher ever sees it, so `-mt-fluid-[8,16]` cannot be made to work — the
+// bracket grammar is comma-based. Write the signs inside the bracket instead:
+// `mt-fluid-[-8,-16]`, which has always worked.
+const NEGATABLE_PREFIXES = new Set([
+  "m", "mx", "my", "mt", "mr", "mb", "ml",
+  "top", "right", "bottom", "left",
+  "inset", "inset-x", "inset-y", "start", "end",
+  "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
+]);
+
 // ─── Arbitrary-only prefixes ───────────────────────────────────────────────────
 // These prefixes don't get a static default scale (v1 decision — their px
 // ranges differ too much from the space scale to reuse it, and inventing a
@@ -487,6 +506,9 @@ function createPluginHandler(
     // Generates: p-fluid-4, px-fluid-4, gap-fluid-4, w-fluid-4, etc.
 
     const spaceUtilities: Record<string, Record<string, string>> = {};
+    // Kept separate so the engine that rejects `.-` selectors can be detected
+    // without taking the positive utilities down with it — see below.
+    const negativeSpaceUtilities: Record<string, Record<string, string>> = {};
 
     for (const [key, { minSize, maxSize }] of Object.entries(
       DEFAULT_SPACE_SCALE,
@@ -499,12 +521,90 @@ function createPluginHandler(
         ...lengthOptions,
       });
 
+      // Negating both ends produces a mirrored ramp — fluidClamp re-sorts the
+      // floor/ceiling itself, so the result is a well-formed clamp() with the
+      // bounds the other way round rather than an inverted one.
+      const negatedClampValue = fluidClamp({
+        minSize: -minSize,
+        maxSize: -maxSize,
+        fluidUnit: resolved.spaceUnit,
+        ...spaceBreakpointRange,
+        ...lengthOptions,
+      });
+
       for (const [prefix, toDeclarations] of Object.entries(SPACE_PROPS)) {
         spaceUtilities[`.${prefix}-fluid-${key}`] = toDeclarations(clampValue);
+
+        if (NEGATABLE_PREFIXES.has(prefix)) {
+          negativeSpaceUtilities[`.-${prefix}-fluid-${key}`] =
+            toDeclarations(negatedClampValue);
+        }
       }
     }
 
     addUtilities({ ...typeUtilities, ...spaceUtilities });
+
+    // ── Negative static utilities ────────────────────────────────────────────
+    // Two engines, two mechanisms. v3 takes `.-mt-fluid-4` straight through
+    // `addUtilities`; v4 rejects any selector starting with `-` ("Utilities must
+    // be a single class name and start with a lowercase letter") and wants a
+    // functional utility with `supportsNegativeValues` instead.
+    //
+    // Which one applies is a property of the *engine*, not of `cssApi` — that
+    // option selects composition formulas, and `cssApi: "v3"` on the v4 engine
+    // is a documented setup. So the engine is detected by trying the v3 form and
+    // catching v4's rejection. v4 validates every selector before registering
+    // any of them, so a throw leaves nothing half-applied.
+    let negativesRegistered = false;
+    try {
+      addUtilities(negativeSpaceUtilities);
+      negativesRegistered = true;
+    } catch {
+      negativesRegistered = false;
+    }
+
+    // v4 path. The values map is an identity of the scale keys, which makes the
+    // callback's input carry both the key and the sign: v4 negates by wrapping,
+    // so a negative candidate arrives as `calc(4 * -1)` and a positive one as
+    // plain `4`. Positives yield nothing here — `addUtilities` already emitted
+    // them, and returning them again would duplicate every static utility.
+    //
+    // This can't extend to arbitrary values: Tailwind rejects a negative
+    // candidate whose value contains a comma before the matcher ever runs, and
+    // the bracket grammar is comma-based. `mt-fluid-[-8,-16]` is the spelling.
+    if (!negativesRegistered) {
+      const scaleKeyIdentity = Object.fromEntries(
+        Object.keys(DEFAULT_SPACE_SCALE).map((key) => [key, key]),
+      );
+
+      matchUtilities(
+        Object.fromEntries(
+          Object.entries(SPACE_PROPS)
+            .filter(([prefix]) => NEGATABLE_PREFIXES.has(prefix))
+            .map(([prefix, toDeclarations]) => [
+              `${prefix}-fluid`,
+              (value: string) => {
+                const negated = /^calc\((.+) \* -1\)$/.exec(String(value));
+                if (!negated) return NO_UTILITY;
+
+                const entry = DEFAULT_SPACE_SCALE[negated[1]];
+                if (!entry) return NO_UTILITY;
+
+                return toDeclarations(
+                  fluidClamp({
+                    minSize: -entry.minSize,
+                    maxSize: -entry.maxSize,
+                    fluidUnit: resolved.spaceUnit,
+                    ...spaceBreakpointRange,
+                    ...lengthOptions,
+                  }),
+                );
+              },
+            ]),
+        ),
+        { values: scaleKeyIdentity, supportsNegativeValues: true },
+      );
+    }
 
     // ── Dynamic arbitrary values (comma-separated; "_" also works) ───────────
     // text-fluid-[16,24]                ← shorthand: two sizes, config breakpoints

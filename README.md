@@ -312,6 +312,31 @@ Put the larger size first to **shrink** as the breakpoint grows; two equal sizes
 just emit that constant value (`text-fluid-[16,16]` → `1rem`). The same holds for
 anchors below.
 
+### Negative values
+
+Margins, insets, scroll-margins and translates come in negative form on the
+static scale, exactly as they do in Tailwind:
+
+```tsx
+<div className="-mt-fluid-4" />;  {/* margin-top: clamp(-1.5rem, -0.833333vw - 0.833333rem, -1rem) */}
+```
+
+For arbitrary values, put the signs **inside** the bracket:
+
+```tsx
+<div className="mt-fluid-[-8,-16]" />;   {/* ✅ */}
+<div className="-mt-fluid-[8,16]" />;    {/* ❌ produces nothing */}
+```
+
+The `-` prefix doesn't work on arbitrary values: Tailwind rejects a negative
+candidate whose value contains a comma before this plugin's matcher ever runs,
+and the bracket grammar is comma-based. Both forms are equally expressive —
+`mt-fluid-[-8,-16]` is simply where the sign has to go.
+
+Only the prefixes Tailwind itself makes negatable get a negative form
+(`m*`, `inset*`/`top`/`right`/`bottom`/`left`/`start`/`end`, `translate-x/y`,
+`scroll-m*`). `-p-fluid-4` doesn't exist, the same way `-p-4` doesn't.
+
 ### Anchors — `size@breakpoint`
 
 Pin a size to an explicit breakpoint with `size@breakpoint`. Order doesn't matter.

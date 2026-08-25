@@ -41,6 +41,18 @@ async function compile(content: string, config: FluidPluginConfig = {}) {
   return css;
 }
 
+/** Compiles with no plugin at all — Tailwind's own utilities, as an oracle. */
+async function compileNative(content: string) {
+  uniqueId += 1;
+  const { css } = await postcss([
+    tailwind({
+      content: [{ raw: `nat${uniqueId} ${content}`, extension: "html" }],
+      corePlugins: { preflight: false },
+    } as Parameters<typeof tailwind>[0]),
+  ]).process("@tailwind utilities;", { from: undefined });
+  return css;
+}
+
 /**
  * camelCase declaration keys → the kebab-case property Tailwind emits.
  * Vendor-prefixed keys need no special case: `WebkitBackdropFilter` starts
@@ -157,6 +169,72 @@ describe("every registered prefix produces the CSS its table declares", () => {
     expect(v3).toContain(".p-fluid-4");
     expect(v3).not.toContain("perspective");
     expect(Object.keys(MISC_PROPS)).toEqual(["perspective"]);
+  });
+});
+
+describe("negative static utilities", () => {
+  const NEGATABLE = [
+    "m", "mx", "my", "mt", "mr", "mb", "ml",
+    "top", "right", "bottom", "left",
+    "inset", "inset-x", "inset-y", "start", "end",
+    "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
+  ];
+
+  // Independent oracle: the set we make negatable must be exactly the set
+  // Tailwind itself makes negatable, derived from compiled native output rather
+  // than from our own table.
+  it("covers exactly the prefixes Tailwind makes negatable", async () => {
+    const prefixes = Object.keys(SPACE_PROPS);
+    const nativeCss = await compileNative(prefixes.map((p) => `-${p}-4`).join(" "));
+    const nativelyNegatable = prefixes.filter((p) => nativeCss.includes(`.-${p}-4`));
+
+    expect(nativelyNegatable.sort()).toEqual([...NEGATABLE].sort());
+  });
+
+  it.each(NEGATABLE)("emits .-%s-fluid-4 with a negated ramp", async (prefix) => {
+    const css = await compile(`-${prefix}-fluid-4`);
+    expect(css, `missing .-${prefix}-fluid-4`).toContain(`-${prefix}-fluid-4`);
+    // 16→24px negated: the floor/ceiling swap, so both bounds are negative.
+    expect(css).toContain("clamp(-1.5rem, -0.833333vw - 0.833333rem, -1rem)");
+  });
+
+  it("does not emit negatives for prefixes Tailwind keeps positive", async () => {
+    for (const prefix of ["p", "px", "gap", "w", "size", "scroll-p"]) {
+      const css = await compile(`-${prefix}-fluid-4 mt-fluid-4`);
+      expect(css).toContain(".mt-fluid-4"); // control: the build ran
+      expect(css, `${prefix} should not be negatable`).not.toContain(`.-${prefix}-fluid-4`);
+    }
+  });
+
+  // Negatives reach v4 through a different mechanism (addUtilities rejects `.-`
+  // selectors there), so the outcome has to be pinned on both engines.
+  it("works on the v4 engine too", async () => {
+    const { compile: compileV4 } = await import("tailwindcss4");
+    const fluidDefault = (await import("../src/plugin")).default;
+    const compiled = await compileV4(`@plugin "x"; @tailwind utilities;`, {
+      loadModule: async () => ({ module: fluidDefault, base: "." }),
+    });
+    const css = compiled.build(["-mt-fluid-4", "mt-fluid-4", "-p-fluid-4"]);
+
+    expect(css).toContain(".-mt-fluid-4");
+    expect(css).toContain("clamp(-1.5rem, -0.833333vw - 0.833333rem, -1rem)");
+    expect(css).toContain(".mt-fluid-4"); // positive still emitted exactly once
+    expect(css.match(/\.mt-fluid-4\s*\{/g) ?? []).toHaveLength(1);
+    expect(css).not.toContain(".-p-fluid-4");
+  });
+
+  it("takes negative arbitrary values inside the bracket", async () => {
+    const css = await compile("mt-fluid-[-8,-16]");
+    expect(css).toContain("margin-top: clamp(-1rem, -0.833333vw - 0.333333rem, -0.5rem)");
+  });
+
+  // Documented limitation: Tailwind rejects a negative candidate whose value
+  // contains a comma before the matcher runs, so the `-` prefix can't work on
+  // the bracket grammar. Pinned so the docs can't silently go stale.
+  it("does not support the - prefix on arbitrary values", async () => {
+    const css = await compile("-mt-fluid-[8,16] p-fluid-4");
+    expect(css).toContain(".p-fluid-4"); // control
+    expect(css).not.toContain("margin-top: clamp(-");
   });
 });
 
