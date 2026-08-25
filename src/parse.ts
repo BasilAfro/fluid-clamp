@@ -229,11 +229,19 @@ export interface LengthOptions {
  * active from viewport 0 (or the shorthand/2-anchor range as a whole);
  * `segments` carries any additional piecewise pairs from a 3+ anchor value,
  * each meant to override `value` from its `minBreakpoint` up via a
- * `@media (min-width: …)` block. Empty for the shorthand and 2-anchor forms.
+ * `@media`/`@container (min-width: …)` block. Empty for the shorthand and
+ * 2-anchor forms.
+ *
+ * `unit` is the fluid unit that actually won the precedence rules (inline
+ * token → named breakpoint ⇒ vw → configured fallback). Callers need it to
+ * pick the right at-rule for `segments`: a `cqw`/`cqh` slope measures its
+ * container, so gating its segments on viewport width would mix two different
+ * reference frames.
  */
 export interface FluidCssValue {
   value: string;
   segments: Array<{ minBreakpoint: number; value: string }>;
+  unit: FluidUnit;
 }
 
 // Maps the positional bound markers to fluidClamp's size-based flags.
@@ -343,7 +351,7 @@ export function parseArbitraryValue(
       else segments.push({ minBreakpoint: low.breakpoint, value: clampValue });
     }
 
-    return { value: base as string, segments };
+    return { value: base as string, segments, unit };
   }
 
   // ── Shorthand form: exactly two sizes, across the configured breakpoints ────
@@ -359,18 +367,20 @@ export function parseArbitraryValue(
     maxSize,
   );
 
+  const unit = pickUnit(false);
+
   try {
     const clampValue = fluidClamp({
       minSize,
       maxSize,
       minBreakpoint: fallbackRange.minBreakpoint,
       maxBreakpoint: fallbackRange.maxBreakpoint,
-      fluidUnit: pickUnit(false),
+      fluidUnit: unit,
       clampMin,
       clampMax,
       ...lengthOptions,
     });
-    return { value: clampValue, segments: [] };
+    return { value: clampValue, segments: [], unit };
   } catch {
     return null;
   }
