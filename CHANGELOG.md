@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 - 2026-08-24
 
 - Fix: **a malformed arbitrary value crashed the Tailwind v4 build.** Every
   matcher returned `null` for a value it couldn't parse, which v3 reads as "no
