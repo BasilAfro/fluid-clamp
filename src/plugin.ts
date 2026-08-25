@@ -679,6 +679,22 @@ function assertValidUnits(options: FluidPluginOptions) {
   }
 }
 
+// The flat-only keys — the ones `normalizeOptions` consumes to build nested
+// config and must NOT pass through to `FluidPluginConfig`. Typed as a full
+// `Record` of `FluidPluginCssOptions`-minus-shared-keys so adding a flat option
+// without listing it here is a type error rather than a silent leak.
+const FLAT_ONLY_KEYS: Record<
+  Exclude<keyof FluidPluginCssOptions, keyof FluidPluginConfig>,
+  true
+> = {
+  minBreakpoint: true,
+  maxBreakpoint: true,
+  textMinBreakpoint: true,
+  textMaxBreakpoint: true,
+  spaceMinBreakpoint: true,
+  spaceMaxBreakpoint: true,
+};
+
 export function normalizeOptions(
   options: FluidPluginOptions = {},
 ): FluidPluginConfig {
@@ -689,7 +705,19 @@ export function normalizeOptions(
       `fluid-clamp: invalid rootFontSize "${rootFontSize}" — expected a number (px).`,
     );
   }
+
+  // Every nested `FluidPluginConfig` key passes through untouched by default —
+  // only the keys derived from the flat CSS form are computed below. Spreading
+  // rather than re-listing each key is deliberate: an allow-list has to be
+  // updated for every new config option, and missing one silently drops that
+  // option on this entry point only (which is how `fluidVars` was lost from
+  // the default export while working fine through `createFluidPlugin`).
+  const passthrough = { ...options } as Record<string, unknown>;
+  for (const key of Object.keys(FLAT_ONLY_KEYS)) delete passthrough[key];
+  const config = passthrough as FluidPluginConfig;
+
   return {
+    ...config,
     breakpointRange:
       options.breakpointRange ??
       rangeFromFlatEndpoints(options.minBreakpoint, options.maxBreakpoint),
@@ -699,13 +727,7 @@ export function normalizeOptions(
     spaceBreakpointRange:
       options.spaceBreakpointRange ??
       rangeFromFlatEndpoints(options.spaceMinBreakpoint, options.spaceMaxBreakpoint),
-    unit: options.unit,
-    textUnit: options.textUnit,
-    spaceUnit: options.spaceUnit,
-    lengthUnit: options.lengthUnit,
     rootFontSize,
-    breakpoints: options.breakpoints,
-    cssApi: options.cssApi,
   };
 }
 

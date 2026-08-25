@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import postcss from "postcss";
 import tailwind from "tailwindcss";
-import { createFluidPlugin } from "../src/plugin";
+import fluidClampPlugin, { createFluidPlugin, normalizeOptions } from "../src/plugin";
 
 const SCREENS = {
   sm: "640px",
@@ -267,5 +267,57 @@ describe("createFluidPlugin (integration)", () => {
         }),
       ).rejects.toThrow(/invalid fluidVars\["text-xs"\]/);
     });
+
+    // The default export normalizes flat CSS-first options before handing them
+    // to the shared plugin body; it used to rebuild the config key-by-key and
+    // drop `fluidVars` entirely, so this path silently emitted no :root
+    // override while `createFluidPlugin` worked fine.
+    it("survives the default export's option normalization", async () => {
+      uniqueId += 1;
+      const { css } = await postcss([
+        tailwind({
+          content: [{ raw: `uniq${uniqueId} text-fluid-base`, extension: "html" }],
+          corePlugins: { preflight: false },
+          theme: { screens: SCREENS },
+          plugins: [fluidClampPlugin({ fluidVars: { "space-token": "16,24" } })],
+        }),
+      ]).process("@tailwind base; @tailwind utilities;", { from: undefined });
+
+      expect(css).toContain(
+        "--space-token: clamp(1rem, 0.833333vw + 0.833333rem, 1.5rem)",
+      );
+    });
+  });
+});
+
+describe("normalizeOptions", () => {
+  it("passes nested-only config options through untouched", () => {
+    const fluidVars = { "text-xs": "10,12" };
+    const breakpoints = { xs: 480 };
+    expect(normalizeOptions({ fluidVars, breakpoints, cssApi: "v4" })).toMatchObject({
+      fluidVars,
+      breakpoints,
+      cssApi: "v4",
+    });
+  });
+
+  it("builds nested ranges from flat endpoints and drops the flat keys", () => {
+    const normalized = normalizeOptions({
+      minBreakpoint: "320",
+      maxBreakpoint: 1280,
+      textMinBreakpoint: "sm",
+    });
+    expect(normalized.breakpointRange).toEqual({
+      minBreakpoint: 320,
+      maxBreakpoint: 1280,
+    });
+    // A missing endpoint falls back to the built-in default.
+    expect(normalized.textBreakpointRange).toEqual({
+      minBreakpoint: "sm",
+      maxBreakpoint: 1280,
+    });
+    expect(normalized.spaceBreakpointRange).toBeUndefined();
+    expect(normalized).not.toHaveProperty("minBreakpoint");
+    expect(normalized).not.toHaveProperty("textMinBreakpoint");
   });
 });
