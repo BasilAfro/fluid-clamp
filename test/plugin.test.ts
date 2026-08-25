@@ -171,7 +171,13 @@ describe("createFluidPlugin (integration)", () => {
   // invent a utility Tailwind itself doesn't have — perspective-fluid-* is
   // v4-only, see plugin-v4.test.ts.
   it("does not register perspective-fluid-* (v3 has no native perspective utility)", async () => {
-    const { css } = await generateCss("perspective-fluid-[250,500]");
+    // `p-fluid-4` is a control: it proves the content really was scanned and
+    // utilities really were generated, so the `not.toContain` below is
+    // meaningful. Without it a compile that produced nothing at all would pass
+    // this test vacuously — and Tailwind would (rightly) warn that it detected
+    // no utility classes.
+    const { css } = await generateCss("perspective-fluid-[250,500] p-fluid-4");
+    expect(css).toContain(".p-fluid-4");
     expect(css).not.toContain("perspective");
   });
 
