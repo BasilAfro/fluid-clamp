@@ -50,9 +50,13 @@ export function parseScreen(value: unknown, rootFontSize = 16): number {
   }
 
   if (value && typeof value === "object") {
+    // Prefer `min`, but fall back to `max` when `min` is absent *or*
+    // unparseable — a screen like { min: "junk", max: "1280px" } still has one
+    // usable endpoint, and returning NaN would drop the whole breakpoint name.
     const screenObject = value as Record<string, unknown>;
-    if ("min" in screenObject) return parseScreen(screenObject.min, rootFontSize);
-    if ("max" in screenObject) return parseScreen(screenObject.max, rootFontSize);
+    const min = parseScreen(screenObject.min, rootFontSize);
+    if (!isNaN(min)) return min;
+    return parseScreen(screenObject.max, rootFontSize);
   }
 
   return NaN;
@@ -69,6 +73,12 @@ export function resolveBreakpoints(
     for (const [name, value] of Object.entries(
       screens as Record<string, unknown>,
     )) {
+      // Intentionally the 16px default rather than the plugin's `rootFontSize`:
+      // a screen is a media-query length, and `rem` in a media query resolves
+      // against the browser's *initial* font size, not the root element's, so a
+      // project that sets `html { font-size: 10px }` (and `rootFontSize: 10`)
+      // still has `40rem` screens break at 640px. `rootFontSize` only converts
+      // the sizes this plugin emits, which are ordinary element-level lengths.
       const pixels = parseScreen(value);
       if (!isNaN(pixels)) breakpointMap[name] = pixels;
     }
@@ -151,11 +161,19 @@ export function resolveBreakpointConfig(
 
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
-// An empty numeric part is NaN, not 0 (Number("") is 0) — so a malformed
-// token like "16@-320" (empty breakpoint after the inset split) is rejected.
+//
+// Deliberately stricter than `Number()`: only a plain optionally-signed decimal
+// is accepted. `Number()` would also take "Infinity" (which reaches the output
+// as an invalid `Infinityrem` length instead of being rejected like every other
+// malformed value), plus "0x10" and "1e2", which silently mean something other
+// than the px number they look like. An empty numeric part is NaN, not 0
+// (`Number("")` is 0) — so a malformed token like "16@-320" (empty breakpoint
+// after the inset split) is rejected.
+const DECIMAL_PATTERN = /^-?(?:\d+\.?\d*|\.\d+)$/;
+
 export function parsePixels(token: string): number {
   const numericPart = token.endsWith("px") ? token.slice(0, -2) : token;
-  return numericPart === "" ? NaN : Number(numericPart);
+  return DECIMAL_PATTERN.test(numericPart) ? Number(numericPart) : NaN;
 }
 
 export interface ParsedAnchor {

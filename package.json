@@ -2,12 +2,18 @@
   "name": "@basilafro/fluid-clamp",
   "version": "2.1.0",
   "description": "Tailwind CSS plugin for fluid clamp utilities using cqw, cqh, and vw",
+  "author": "BasilAfro",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/BasilAfro/fluid-clamp.git"
   },
+  "homepage": "https://github.com/BasilAfro/fluid-clamp#readme",
+  "bugs": {
+    "url": "https://github.com/BasilAfro/fluid-clamp/issues"
+  },
   "main": "dist/cjs/index.js",
   "types": "dist/types/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
@@ -26,6 +32,10 @@
     "README.md",
     "CHANGELOG.md"
   ],
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@11.23.0",
   "scripts": {
     "build": "tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json && node scripts/stamp-dist-package-json.mjs",
     "dev": "tsc -p tsconfig.esm.json --watch",

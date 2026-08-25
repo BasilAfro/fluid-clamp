@@ -204,7 +204,7 @@ const PLUGIN_DEFAULTS: ResolvedConfig = {
 // arbitrary-value matchers (`p-fluid-[…]`) are generated from this map, so the
 // prefix → property mapping lives in exactly one place.
 
-const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   p: (clampValue) => ({ padding: clampValue }),
   px: (clampValue) => ({ paddingLeft: clampValue, paddingRight: clampValue }),
   py: (clampValue) => ({ paddingTop: clampValue, paddingBottom: clampValue }),
@@ -274,13 +274,13 @@ const SPACE_PROPS: Record<string, (clampValue: string) => Record<string, string>
 // support via `${prefix}-fluid-[…]`, bound to the same `spaceClamp` resolver
 // as `SPACE_PROPS` (same breakpoint range/unit as spacing).
 
-const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const TYPOGRAPHY_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   leading: (clampValue) => ({ lineHeight: clampValue }),
   tracking: (clampValue) => ({ letterSpacing: clampValue }),
   indent: (clampValue) => ({ textIndent: clampValue }),
 };
 
-const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   border: (clampValue) => ({ borderWidth: clampValue }),
   "border-t": (clampValue) => ({ borderTopWidth: clampValue }),
   "border-r": (clampValue) => ({ borderRightWidth: clampValue }),
@@ -290,7 +290,7 @@ const BORDER_PROPS: Record<string, (clampValue: string) => Record<string, string
   "outline-offset": (clampValue) => ({ outlineOffset: clampValue }),
 };
 
-const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   rounded: (clampValue) => ({ borderRadius: clampValue }),
   "rounded-t": (clampValue) => ({
     borderTopLeftRadius: clampValue,
@@ -320,14 +320,14 @@ const RADIUS_PROPS: Record<string, (clampValue: string) => Record<string, string
 // itself doesn't have. Tailwind v4 does ship a native arbitrary-value-only
 // `perspective-[…]` utility, so this is registered for v4 only — see the
 // `cssApi === "v4"` guard around its `matchUtilities` call below.
-const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
+export const MISC_PROPS: Record<string, (clampValue: string) => Record<string, string>> = {
   perspective: (clampValue) => ({ perspective: clampValue }),
 };
 
 // Arbitrary-only tables, merged for a single matchUtilities registration loop.
 // MISC_PROPS is intentionally excluded — it's registered separately, gated to
 // v4 only (see above).
-const ARBITRARY_ONLY_PROPS = {
+export const ARBITRARY_ONLY_PROPS = {
   ...TYPOGRAPHY_PROPS,
   ...BORDER_PROPS,
   ...RADIUS_PROPS,
@@ -679,6 +679,22 @@ function assertValidUnits(options: FluidPluginOptions) {
   }
 }
 
+// The flat-only keys — the ones `normalizeOptions` consumes to build nested
+// config and must NOT pass through to `FluidPluginConfig`. Typed as a full
+// `Record` of `FluidPluginCssOptions`-minus-shared-keys so adding a flat option
+// without listing it here is a type error rather than a silent leak.
+const FLAT_ONLY_KEYS: Record<
+  Exclude<keyof FluidPluginCssOptions, keyof FluidPluginConfig>,
+  true
+> = {
+  minBreakpoint: true,
+  maxBreakpoint: true,
+  textMinBreakpoint: true,
+  textMaxBreakpoint: true,
+  spaceMinBreakpoint: true,
+  spaceMaxBreakpoint: true,
+};
+
 export function normalizeOptions(
   options: FluidPluginOptions = {},
 ): FluidPluginConfig {
@@ -689,7 +705,19 @@ export function normalizeOptions(
       `fluid-clamp: invalid rootFontSize "${rootFontSize}" — expected a number (px).`,
     );
   }
+
+  // Every nested `FluidPluginConfig` key passes through untouched by default —
+  // only the keys derived from the flat CSS form are computed below. Spreading
+  // rather than re-listing each key is deliberate: an allow-list has to be
+  // updated for every new config option, and missing one silently drops that
+  // option on this entry point only (which is how `fluidVars` was lost from
+  // the default export while working fine through `createFluidPlugin`).
+  const passthrough = { ...options } as Record<string, unknown>;
+  for (const key of Object.keys(FLAT_ONLY_KEYS)) delete passthrough[key];
+  const config = passthrough as FluidPluginConfig;
+
   return {
+    ...config,
     breakpointRange:
       options.breakpointRange ??
       rangeFromFlatEndpoints(options.minBreakpoint, options.maxBreakpoint),
@@ -699,13 +727,7 @@ export function normalizeOptions(
     spaceBreakpointRange:
       options.spaceBreakpointRange ??
       rangeFromFlatEndpoints(options.spaceMinBreakpoint, options.spaceMaxBreakpoint),
-    unit: options.unit,
-    textUnit: options.textUnit,
-    spaceUnit: options.spaceUnit,
-    lengthUnit: options.lengthUnit,
     rootFontSize,
-    breakpoints: options.breakpoints,
-    cssApi: options.cssApi,
   };
 }
 

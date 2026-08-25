@@ -1,4 +1,4 @@
-# ba-fluid-clamp
+# @basilafro/fluid-clamp
 
 Tailwind CSS plugin for fluid `clamp()` utilities using `cqw`, `cqh`, and `vw`.
 Works with Tailwind CSS **v3** (JS config) and **v4** (CSS-first `@plugin`).
@@ -39,9 +39,11 @@ breakpoint ranges are spelled out as two keys (this is the flat form of
 ```
 
 Flat option keys: `minBreakpoint`, `maxBreakpoint`, `unit`, `lengthUnit`,
-`rootFontSize`, plus the per-target overrides `textMinBreakpoint`,
+`rootFontSize`, `cssApi`, plus the per-target overrides `textMinBreakpoint`,
 `textMaxBreakpoint`, `spaceMinBreakpoint`, `spaceMaxBreakpoint`, `textUnit`,
-`spaceUnit`. They map 1:1 onto the config options table below.
+`spaceUnit`. They map 1:1 onto the config options table below. (`breakpoints`
+and `fluidVars` are absent by necessity — they need nested values, which
+`@plugin` blocks can't carry.)
 
 Named breakpoints come straight from your `@theme` — every `--breakpoint-*`
 variable is usable in anchors and options, no plugin config needed:
@@ -57,7 +59,19 @@ variable is usable in anchors and options, no plugin config needed:
 > there — same as the v3 setup below.
 
 The default export also works from a JS config (v3 or v4), taking the same flat
-keys: `plugins: [fluidClampPlugin({ minBreakpoint: 320, maxBreakpoint: 1280 })]`.
+keys — plus the nested ones the CSS form can't express (`breakpoints`,
+`fluidVars`, `breakpointRange`, …):
+
+```ts
+plugins: [fluidClampPlugin({ minBreakpoint: 320, maxBreakpoint: 1280 })];
+```
+
+> **Using it from a Tailwind v3 config?** Pass `cssApi: "v3"`. The default
+> export assumes `"v4"` (it's the CSS-first entry point), and on v3 that makes
+> the [composite utilities](#config-options) emit v4's internal variables, so
+> they silently stop composing with native `rotate-*`/`ring-*`. Everything else
+> is unaffected. `createFluidPlugin` already defaults to `"v3"`, so on a v3
+> project it's the simpler choice.
 
 ---
 
@@ -260,7 +274,7 @@ shipped a native `perspective` utility, so this plugin doesn't invent one for it
 | Transform (composite)    | `translate-x`, `translate-y`                                                                        | `translate` (v4) / `transform` (v3), via `--tw-translate-x/y`     |
 | Filters (composite)      | `blur`, `backdrop-blur`                                                                             | `filter` / `backdrop-filter`, via `--tw-blur`/`--tw-backdrop-blur` |
 | Ring (composite)         | `ring`, `ring-offset`                                                                                | `box-shadow`, via the same `--tw-ring-*` variables Tailwind uses  |
-| Spacing between children (composite) | `space-x`, `space-y`, `divide-x`, `divide-y`                                              | margin/border-width on `> :not(:last-child)`                      |
+| Spacing between children (composite) | `space-x`, `space-y`, `divide-x`, `divide-y`                                              | margin/border-width on a child selector — `:where(& > :not(:last-child))` (v4) / `> :not([hidden]) ~ :not([hidden])` (v3) |
 
 Example: `border-fluid-[1,4]`, `rounded-tl-fluid-[4,12]`, `leading-fluid-[16,24]`,
 `translate-x-fluid-[8,24]`, `space-x-fluid-[8,16]`.
@@ -361,19 +375,23 @@ up:
 
 ```css
 .text-fluid-\[24\@390\2c 28\@640\2c 42\@768\2c 48\@1024\] {
-  font-size: clamp(24px, 1.6vw + 17.76px, 28px); /* 390 → 640 */
+  font-size: clamp(1.5rem, 1.6vw + 1.11rem, 1.75rem); /* 24→28px, 390 → 640 */
 }
 @media (min-width: 640px) {
   .text-fluid-\[24\@390\2c 28\@640\2c 42\@768\2c 48\@1024\] {
-    font-size: clamp(28px, 10.9375vw - 42px, 42px); /* 640 → 768 */
+    font-size: clamp(1.75rem, 10.9375vw - 2.625rem, 2.625rem); /* 28→42px, 640 → 768 */
   }
 }
 @media (min-width: 768px) {
   .text-fluid-\[24\@390\2c 28\@640\2c 42\@768\2c 48\@1024\] {
-    font-size: clamp(42px, 2.34375vw + 24px, 48px); /* 768 → 1024 */
+    font-size: clamp(2.625rem, 2.34375vw + 1.5rem, 3rem); /* 42→48px, 768 → 1024 */
   }
 }
 ```
+
+Sizes are written in px but emitted in `rem` (the `lengthUnit` default, which
+respects the reader's browser font-size preference) — 24px → `1.5rem` at the
+default `rootFontSize` of 16. Pass `lengthUnit: "px"` to get px out.
 
 Works with named breakpoints, insets, the unit token, and every other
 `*-fluid-[...]` prefix (spacing, typography, border, composite) — it's the
@@ -461,6 +479,15 @@ fluidClamp({ minSize: 14, maxSize: 22, minBreakpoint: 304, maxBreakpoint: 1074, 
 
 `clampMin`/`clampMax` default to `true`. Set either to `false` to drop that bound
 (`min()`/`max()`); drop both for a bare `calc()`.
+
+### Other exports
+
+| Export | Type | Use |
+| ------ | ---- | --- |
+| `DEFAULT_TYPE_SCALE`, `DEFAULT_SPACE_SCALE` | `Record<string, { minSize, maxSize }>` | The px tables backing `text-fluid-lg`, `p-fluid-4`, … — read them to mirror the scale elsewhere, or feed entries to `fluidClamp()` directly |
+| `isFluidUnit` | `(value: string) => value is FluidUnit` | Narrowing guard for `vw`/`cqw`/`cqh`, e.g. when validating your own config input |
+| `normalizeOptions` | `(options: FluidPluginOptions) => FluidPluginConfig` | Turns the flat CSS-first keys into the nested config shape; exported mainly for wrapping the plugin in your own preset |
+| `FluidUnit`, `LengthUnit`, `CssApi`, `ScaleEntry`, `FluidClampOptions`, `FluidPluginConfig`, `FluidPluginOptions`, `FluidPluginCssOptions`, `BreakpointConfig` | types | For typing your own config objects and wrappers |
 
 ---
 

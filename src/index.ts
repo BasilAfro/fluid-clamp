@@ -19,5 +19,9 @@ export type {
   BreakpointConfig,
 } from "./plugin.js";
 
+// `cssApi` is a public config option, so its type has to be nameable by
+// consumers writing a typed config object.
+export type { CssApi } from "./composite.js";
+
 export { DEFAULT_TYPE_SCALE, DEFAULT_SPACE_SCALE } from "./defaults.js";
 export type { ScaleEntry } from "./defaults.js";

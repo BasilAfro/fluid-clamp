@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+- Fix: **`fluidVars` was silently dropped by the default export.** The v4
+  CSS-first / default export normalizes its options before handing them to the
+  shared plugin body, and that normalization rebuilt the config key-by-key —
+  omitting `fluidVars`, so `fluidClampPlugin({ fluidVars: { … } })` emitted no
+  `:root` overrides at all (and never reached the validation that makes a bad
+  value throw), while `createFluidPlugin({ fluidVars: { … } })` worked. The
+  normalizer now passes every nested config option through by default and only
+  computes the keys derived from the flat CSS form, so a newly added option
+  can't go missing on one entry point again.
+- Fix: **non-finite arbitrary sizes emitted invalid CSS.** Size and breakpoint
+  tokens were parsed with bare `Number()`, so `w-fluid-[Infinity,24]` compiled
+  to `width: clamp(1.5rem, -Infinityvw + Infinityrem, Infinityrem)` instead of
+  being rejected like every other malformed value. Tokens are now restricted to
+  plain optionally-signed decimals, which also stops `0x10` and `1e2` from being
+  silently reinterpreted as `16` and `100`.
+- Fix: a `theme.screens` entry in object form with an unparseable `min` (e.g.
+  `{ min: "junk", max: "1280px" }`) dropped the breakpoint name entirely instead
+  of falling back to `max`.
+- New: the **`CssApi`** type is exported from the package root — `cssApi` is a
+  public config option, so its type is now nameable by consumers writing a typed
+  config object.
+- Docs: noted why named breakpoints in `rem` always resolve against 16px rather
+  than the `rootFontSize` option (`rem` in a media query resolves against the
+  browser's initial font size, not the root element's).
+- Packaging: added `sideEffects: false`, `engines`, `packageManager`, and the
+  `author`/`homepage`/`bugs` metadata fields. `sideEffects` is stamped into
+  `dist/cjs/package.json` and `dist/esm/package.json` as well as the root:
+  bundlers read the flag from the package.json nearest the resolved module, so
+  the `{ "type": … }` stamps would otherwise shadow the root's and leave
+  tree-shaking disabled for the ESM build.
+- Tooling: added `pnpm-workspace.yaml` recording `allowBuilds: { esbuild: false }`.
+  esbuild's postinstall is a fallback that only matters when its per-platform
+  binary package is missing, which it isn't — but pnpm 11 fails every command
+  with `ERR_PNPM_IGNORED_BUILDS` until the decision is written down.
+
 - New: **`fluidVars`** config option — emits fluid `:root` CSS custom
   properties instead of utility classes, e.g.
   `fluidVars: { "text-xs": "10@390,11@768,12@1280" }` → `--text-xs`, useful

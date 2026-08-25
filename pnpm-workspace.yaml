@@ -1,0 +1,13 @@
+# pnpm 11 settings. `allowBuilds` records a decision per dependency that ships
+# an install script, so pnpm stops failing every command with
+# ERR_PNPM_IGNORED_BUILDS waiting to be told what to do.
+#
+# esbuild: false — its postinstall is deliberately NOT run. Since esbuild 0.16
+# the actual binary ships as a per-platform optional dependency
+# (@esbuild/darwin-arm64 et al.) and the install script is only a fallback that
+# downloads/links one when that package is missing. It isn't missing here, so
+# the script has nothing to do; skipping it keeps one less postinstall in the
+# supply chain. Verified: the binary reports 0.21.5, transformSync works, and
+# the full vitest suite passes.
+allowBuilds:
+  esbuild: false

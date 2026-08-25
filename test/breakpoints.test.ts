@@ -23,10 +23,14 @@ describe("parseScreen", () => {
     expect(parseScreen({ min: "640px", max: "1280px" })).toBe(640);
     expect(parseScreen({ max: "1280px" })).toBe(1280);
   });
+  it("falls back to max when min is present but unparseable", () => {
+    expect(parseScreen({ min: "junk", max: "1280px" })).toBe(1280);
+  });
   it("returns NaN for unparseable values", () => {
     expect(Number.isNaN(parseScreen("garbage"))).toBe(true);
     expect(Number.isNaN(parseScreen(undefined))).toBe(true);
     expect(Number.isNaN(parseScreen({}))).toBe(true);
+    expect(Number.isNaN(parseScreen({ min: "junk", max: "junk" }))).toBe(true);
   });
 });
 
