@@ -35,6 +35,23 @@ describe("parsePixels", () => {
     expect(Number.isNaN(parsePixels(""))).toBe(true);
     expect(Number.isNaN(parsePixels("px"))).toBe(true);
   });
+  it("parses signed and leading-dot decimals", () => {
+    expect(parsePixels("-16")).toBe(-16);
+    expect(parsePixels("-12.5px")).toBe(-12.5);
+    expect(parsePixels(".5")).toBe(0.5);
+  });
+  it("returns NaN for non-finite values (they would emit invalid CSS)", () => {
+    expect(Number.isNaN(parsePixels("Infinity"))).toBe(true);
+    expect(Number.isNaN(parsePixels("-Infinity"))).toBe(true);
+    expect(Number.isNaN(parsePixels("NaN"))).toBe(true);
+  });
+  it("returns NaN for numeric forms that don't mean what they look like", () => {
+    // Number() would read these as 16 and 100 — a px token should not be
+    // silently reinterpreted as hex or exponential notation.
+    expect(Number.isNaN(parsePixels("0x10"))).toBe(true);
+    expect(Number.isNaN(parsePixels("1e2"))).toBe(true);
+    expect(Number.isNaN(parsePixels(" 16 "))).toBe(true);
+  });
 });
 
 describe("parseAnchor", () => {
@@ -297,5 +314,14 @@ describe("parseArbitraryValue — rejected forms (null)", () => {
   });
   it("a non-numeric token", () => {
     expect(parse("abc 24")).toBeNull();
+  });
+  it("a non-finite size — it would compile to an invalid length, not no class", () => {
+    expect(parse("Infinity,24")).toBeNull();
+    expect(parse("16,Infinity")).toBeNull();
+    expect(parse("Infinity@320,24@1280")).toBeNull();
+  });
+  it("a size in hex or exponential notation", () => {
+    expect(parse("0x10,24")).toBeNull();
+    expect(parse("1e2,24")).toBeNull();
   });
 });

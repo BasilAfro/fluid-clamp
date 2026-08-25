@@ -151,11 +151,19 @@ export function resolveBreakpointConfig(
 
 // Strips a trailing "px" suffix and returns the numeric value.
 // Returns NaN if the string is not a valid number (with or without px).
-// An empty numeric part is NaN, not 0 (Number("") is 0) — so a malformed
-// token like "16@-320" (empty breakpoint after the inset split) is rejected.
+//
+// Deliberately stricter than `Number()`: only a plain optionally-signed decimal
+// is accepted. `Number()` would also take "Infinity" (which reaches the output
+// as an invalid `Infinityrem` length instead of being rejected like every other
+// malformed value), plus "0x10" and "1e2", which silently mean something other
+// than the px number they look like. An empty numeric part is NaN, not 0
+// (`Number("")` is 0) — so a malformed token like "16@-320" (empty breakpoint
+// after the inset split) is rejected.
+const DECIMAL_PATTERN = /^-?(?:\d+\.?\d*|\.\d+)$/;
+
 export function parsePixels(token: string): number {
   const numericPart = token.endsWith("px") ? token.slice(0, -2) : token;
-  return numericPart === "" ? NaN : Number(numericPart);
+  return DECIMAL_PATTERN.test(numericPart) ? Number(numericPart) : NaN;
 }
 
 export interface ParsedAnchor {
